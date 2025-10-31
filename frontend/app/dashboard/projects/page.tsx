@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { projectAPI, gameAPI } from '@/lib/api';
-import { Project, GameState } from '@/types/game';
+import { projectAPI, gameAPI, employeeAPI } from '@/lib/api';
+import { Project, GameState, Employee } from '@/types/game';
 
 // Available job templates for freelancers
 const JOB_TEMPLATES = [
@@ -60,6 +60,7 @@ const JOB_TEMPLATES = [
 export default function ProjectsPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [loading, setLoading] = useState(true);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
@@ -85,12 +86,14 @@ export default function ProjectsPage() {
         return;
       }
 
-      const [projectsData, gameData] = await Promise.all([
+      const [projectsData, gameData, employeesData] = await Promise.all([
         projectAPI.getProjects(),
-        gameAPI.getGameState()
+        gameAPI.getGameState(),
+        employeeAPI.getEmployees()
       ]);
       
       setProjects(projectsData.data || []);
+      setEmployees(employeesData.data || []);
       setGameState(gameData.data);
       setLastUpdate(new Date());
       setLoading(false);
@@ -232,6 +235,28 @@ export default function ProjectsPage() {
                       </button>
                     )}
                   </div>
+
+                  {/* Assigned Employees */}
+                  {(() => {
+                    const assignedEmployees = employees.filter(e => e.assigned_project?.id === project.id);
+                    if (assignedEmployees.length > 0) {
+                      return (
+                        <div className="mt-3 pt-3 border-t border-gray-700">
+                          <div className="text-xs text-gray-400 mb-2">👥 Working on this:</div>
+                          <div className="flex flex-wrap gap-2">
+                            {assignedEmployees.map(emp => (
+                              <div key={emp.id} className="flex items-center gap-1 bg-blue-900/30 border border-blue-500/30 px-2 py-1 rounded text-xs">
+                                <span>{emp.status_emoji}</span>
+                                <span className="font-bold">{emp.name}</span>
+                                <span className="text-gray-400">({emp.role})</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
 
                   {/* Deadline */}
                   {project.deadline && (

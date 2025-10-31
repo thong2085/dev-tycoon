@@ -17,6 +17,12 @@ class GameState extends Model
         'level',
         'upgrades',
         'last_active',
+        'reputation',
+        'completed_projects',
+        'prestige_level',
+        'prestige_points',
+        'lifetime_earnings',
+        'total_clicks',
     ];
 
     protected $casts = [

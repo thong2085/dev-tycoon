@@ -8,6 +8,8 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\SkillController;
+use App\Http\Controllers\AchievementController;
+use App\Http\Controllers\ShopController;
 
 /*
 |--------------------------------------------------------------------------
@@ -52,6 +54,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/employees/hire', [EmployeeController::class, 'hire']);
     Route::post('/employees/{id}/fire', [EmployeeController::class, 'fire']);
     Route::post('/employees/{id}/assign', [EmployeeController::class, 'assignTask']);
+    Route::post('/employees/{id}/assign-project', [EmployeeController::class, 'assignToProject']);
+    Route::post('/employees/{id}/unassign', [EmployeeController::class, 'unassignFromProject']);
+    Route::post('/employees/{id}/rest', [EmployeeController::class, 'rest']);
     
     // Skills
     Route::get('/skills', [SkillController::class, 'index']);
@@ -61,5 +66,15 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Leaderboard
     Route::get('/leaderboard', [GameController::class, 'leaderboard']);
+    
+    // Achievements
+    Route::get('/achievements', [AchievementController::class, 'index']);
+    Route::post('/achievements/check', [AchievementController::class, 'checkAchievements']);
+    Route::get('/achievements/unnotified', [AchievementController::class, 'getUnnotified']);
+    
+    // Shop
+    Route::get('/shop', [ShopController::class, 'index']);
+    Route::post('/shop/purchase', [ShopController::class, 'purchase']);
+    Route::get('/shop/purchases', [ShopController::class, 'getActivePurchases']);
 });
 

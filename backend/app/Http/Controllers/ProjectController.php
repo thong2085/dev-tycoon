@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\ProjectTask;
+use App\Models\Leaderboard;
 use Illuminate\Http\Request;
 
 class ProjectController extends Controller
@@ -99,6 +100,9 @@ class ProjectController extends Controller
         $gameState->completed_projects += 1;
         
         $gameState->save();
+
+        // Update leaderboard
+        Leaderboard::updateEntry($user->id, $gameState);
 
         // Mark project as claimed by deleting or updating status
         $project->delete();

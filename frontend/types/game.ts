@@ -18,6 +18,10 @@ export interface GameState {
   level: number;
   reputation: number;
   completed_projects: number;
+  prestige_level: number;
+  prestige_points: number;
+  lifetime_earnings: number;
+  total_clicks: number;
   upgrades: Record<string, number>;
   last_active: string;
   created_at: string;
@@ -46,7 +50,19 @@ export interface Employee {
   salary: number;
   energy: number;
   status: 'working' | 'idle' | 'quit';
+  morale: number;
+  level: number;
+  experience: number;
+  xp_for_next_level: number;
+  projects_completed: number;
   effective_productivity?: number;
+  status_emoji: string;
+  needs_rest: boolean;
+  assigned_project?: {
+    id: number;
+    title: string;
+    progress: number;
+  } | null;
   created_at: string;
   updated_at?: string;
 }
@@ -89,11 +105,14 @@ export interface MarketEvent {
 }
 
 export interface LeaderboardEntry {
-  id: number;
-  user_id: number;
   rank: number;
-  score: number;
-  user: User;
+  user_id: number;
+  name: string;
+  money: number;
+  level: number;
+  reputation: number;
+  projects_completed: number;
+  is_current_user: boolean;
 }
 
 export interface Skill {
@@ -128,5 +147,46 @@ export interface UserSkill {
   efficiency_bonus: number;
   upgrade_cost: number | null;
   unlocked_at: string;
+}
+
+export interface Achievement {
+  id: number;
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  requirement_value: number;
+  requirement_type: string;
+  reward_money: number;
+  reward_xp: number;
+  reward_prestige_points: number;
+  is_unlocked: boolean;
+  progress: number;
+  unlocked_at?: string;
+}
+
+export interface ShopItem {
+  id: number;
+  key: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  price: number;
+  duration_minutes: number | null;
+  effect_type: string;
+  effect_data: Record<string, any>;
+  is_available: boolean;
+}
+
+export interface UserPurchase {
+  id: number;
+  user_id: number;
+  shop_item_id: number;
+  purchased_at: string;
+  expires_at: string | null;
+  is_active: boolean;
+  shopItem: ShopItem;
 }
 

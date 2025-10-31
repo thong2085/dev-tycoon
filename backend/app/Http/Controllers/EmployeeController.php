@@ -17,7 +17,7 @@ class EmployeeController extends Controller
             return response()->json(['error' => 'Company not found'], 404);
         }
 
-        $employees = $company->employees()->get()->map(function ($employee) {
+        $employees = $company->employees()->with('assignedProject')->get()->map(function ($employee) {
             return [
                 'id' => $employee->id,
                 'name' => $employee->name,
@@ -27,7 +27,19 @@ class EmployeeController extends Controller
                 'salary' => $employee->salary,
                 'energy' => $employee->energy,
                 'status' => $employee->status,
+                'morale' => $employee->morale,
+                'level' => $employee->level,
+                'experience' => $employee->experience,
+                'xp_for_next_level' => $employee->getXPForNextLevel(),
+                'projects_completed' => $employee->projects_completed,
                 'effective_productivity' => $employee->getEffectiveProductivity(),
+                'status_emoji' => $employee->getStatusEmoji(),
+                'needs_rest' => $employee->needsRest(),
+                'assigned_project' => $employee->assignedProject ? [
+                    'id' => $employee->assignedProject->id,
+                    'title' => $employee->assignedProject->title,
+                    'progress' => $employee->assignedProject->progress,
+                ] : null,
                 'created_at' => $employee->created_at,
             ];
         });
@@ -161,6 +173,91 @@ class EmployeeController extends Controller
             'success' => true,
             'employee' => $employee,
             'task' => $task,
+        ]);
+    }
+
+    /**
+     * Assign employee to a project
+     */
+    public function assignToProject(Request $request, $id)
+    {
+        $request->validate([
+            'project_id' => 'required|integer|exists:projects,id',
+        ]);
+
+        $user = $request->user();
+        $company = $user->companies()->first();
+
+        if (!$company) {
+            return response()->json(['error' => 'Company not found'], 404);
+        }
+
+        $employee = $company->employees()->findOrFail($id);
+
+        // Check if employee needs rest
+        if ($employee->needsRest()) {
+            return response()->json([
+                'error' => "{$employee->name} is too tired and needs rest!",
+                'needs_rest' => true
+            ], 400);
+        }
+
+        // Assign to project
+        $employee->assigned_project_id = $request->project_id;
+        $employee->status = 'working';
+        $employee->last_worked = now();
+        $employee->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$employee->name} assigned to project!",
+            'data' => $employee->load('assignedProject'),
+        ]);
+    }
+
+    /**
+     * Unassign employee from project
+     */
+    public function unassignFromProject(Request $request, $id)
+    {
+        $user = $request->user();
+        $company = $user->companies()->first();
+
+        if (!$company) {
+            return response()->json(['error' => 'Company not found'], 404);
+        }
+
+        $employee = $company->employees()->findOrFail($id);
+        $employee->assigned_project_id = null;
+        $employee->status = 'idle';
+        $employee->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$employee->name} unassigned from project.",
+            'data' => $employee,
+        ]);
+    }
+
+    /**
+     * Rest employee (restore energy and morale)
+     */
+    public function rest(Request $request, $id)
+    {
+        $user = $request->user();
+        $company = $user->companies()->first();
+
+        if (!$company) {
+            return response()->json(['error' => 'Company not found'], 404);
+        }
+
+        $employee = $company->employees()->findOrFail($id);
+        $employee->rest();
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$employee->name} is now resting and recovering.",
+            'data' => $employee,
         ]);
     }
 }

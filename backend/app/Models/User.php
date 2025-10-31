@@ -79,6 +79,18 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    public function achievements(): BelongsToMany
+    {
+        return $this->belongsToMany(Achievement::class, 'user_achievements')
+            ->withPivot(['unlocked_at', 'notified'])
+            ->withTimestamps();
+    }
+
+    public function purchases(): HasMany
+    {
+        return $this->hasMany(UserPurchase::class);
+    }
+
     /**
      * Get total skill levels
      */

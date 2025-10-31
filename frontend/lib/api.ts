@@ -141,6 +141,21 @@ export const employeeAPI = {
     const response = await api.post(`/employees/${id}/assign`, { task_id: taskId });
     return response.data;
   },
+
+  assignToProject: async (id: number, projectId: number) => {
+    const response = await api.post(`/employees/${id}/assign-project`, { project_id: projectId });
+    return response.data;
+  },
+
+  unassignFromProject: async (id: number) => {
+    const response = await api.post(`/employees/${id}/unassign`);
+    return response.data;
+  },
+
+  rest: async (id: number) => {
+    const response = await api.post(`/employees/${id}/rest`);
+    return response.data;
+  },
 };
 
 // Skills API
@@ -162,6 +177,46 @@ export const skillsAPI = {
 
   upgradeSkill: async (skillId: number) => {
     const response = await api.post('/skills/upgrade', { skill_id: skillId });
+    return response.data;
+  },
+};
+
+// Leaderboard API
+export const leaderboardAPI = {
+  getLeaderboard: async (category: 'money' | 'level' | 'reputation' | 'projects' = 'money') => {
+    const response = await api.get('/leaderboard', { params: { category } });
+    return response.data;
+  },
+};
+
+// Achievements API
+export const achievementAPI = {
+  getAchievements: async () => {
+    const response = await api.get('/achievements');
+    return response.data;
+  },
+  checkAchievements: async () => {
+    const response = await api.post('/achievements/check');
+    return response.data;
+  },
+  getUnnotified: async () => {
+    const response = await api.get('/achievements/unnotified');
+    return response.data;
+  },
+};
+
+// Shop API
+export const shopAPI = {
+  getItems: async () => {
+    const response = await api.get('/shop');
+    return response.data;
+  },
+  purchase: async (itemId: number) => {
+    const response = await api.post('/shop/purchase', { item_id: itemId });
+    return response.data;
+  },
+  getActivePurchases: async () => {
+    const response = await api.get('/shop/purchases');
     return response.data;
   },
 };

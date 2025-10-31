@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { gameAPI } from '@/lib/api';
 import { GameState, Company, MarketEvent } from '@/types/game';
+import CountUpNumber from '@/components/CountUpNumber';
+import { SkeletonCard } from '@/components/Skeleton';
+import ParticleEffect from '@/components/ParticleEffect';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -13,6 +16,7 @@ export default function Dashboard() {
   const [offlineIncome, setOfflineIncome] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [skillBonuses, setSkillBonuses] = useState<any>(null);
+  const [clickParticle, setClickParticle] = useState(0);
 
   useEffect(() => {
     loadGameState();
@@ -55,6 +59,9 @@ export default function Dashboard() {
     try {
       const data = await gameAPI.click();
       
+      // Trigger particle effect
+      setClickParticle(prev => prev + 1);
+      
       // Update game state with new values
       if (gameState) {
         setGameState({
@@ -84,8 +91,23 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-        <div className="text-2xl">Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8 space-y-4">
+            <div className="h-12 w-64 bg-gray-700 rounded animate-skeleton"></div>
+            <div className="h-6 w-96 bg-gray-700 rounded animate-skeleton"></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {[...Array(4)].map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[...Array(5)].map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -118,35 +140,63 @@ export default function Dashboard() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-gray-800 p-6 rounded-lg">
-            <h3 className="text-gray-400 text-sm mb-2">Money</h3>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-lg border border-gray-700 hover:border-green-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/20 animate-slide-up">
+            <h3 className="text-gray-400 text-sm mb-2 flex items-center gap-2">
+              💰 Money
+            </h3>
             <p className="text-3xl font-bold text-green-400">
-              ${Number(gameState.money).toFixed(2)}
+              <CountUpNumber 
+                value={Number(gameState.money)} 
+                decimals={2} 
+                prefix="$" 
+              />
             </p>
           </div>
 
-          <div className="bg-gray-800 p-6 rounded-lg">
-            <h3 className="text-gray-400 text-sm mb-2">Level</h3>
-            <p className="text-3xl font-bold text-blue-400">{gameState.level}</p>
-            <p className="text-sm text-gray-400">XP: {gameState.xp}</p>
-          </div>
-
-          <div className="bg-gray-800 p-6 rounded-lg">
-            <h3 className="text-gray-400 text-sm mb-2">Reputation</h3>
-            <p className="text-3xl font-bold text-yellow-400">⭐ {gameState.reputation || 0}</p>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-lg border border-gray-700 hover:border-blue-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+            <h3 className="text-gray-400 text-sm mb-2 flex items-center gap-2">
+              📈 Level
+            </h3>
+            <p className="text-3xl font-bold text-blue-400">
+              <CountUpNumber value={gameState.level} />
+            </p>
             <p className="text-sm text-gray-400">
-              {gameState.completed_projects || 0} projects done
+              XP: <CountUpNumber value={gameState.xp} />
             </p>
           </div>
 
-          <div className="bg-gray-800 p-6 rounded-lg">
-            <h3 className="text-gray-400 text-sm mb-2">Auto Income</h3>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-lg border border-gray-700 hover:border-yellow-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-yellow-500/20 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+            <h3 className="text-gray-400 text-sm mb-2 flex items-center gap-2">
+              ⭐ Reputation
+            </h3>
+            <p className="text-3xl font-bold text-yellow-400">
+              <CountUpNumber value={gameState.reputation || 0} />
+            </p>
+            <p className="text-sm text-gray-400">
+              <CountUpNumber value={gameState.completed_projects || 0} /> projects done
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-6 rounded-lg border border-gray-700 hover:border-purple-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/20 animate-slide-up" style={{ animationDelay: '0.3s' }}>
+            <h3 className="text-gray-400 text-sm mb-2 flex items-center gap-2">
+              🤖 Auto Income
+            </h3>
             <p className="text-3xl font-bold text-purple-400">
-              ${Number(gameState.auto_income).toFixed(2)}/s
+              <CountUpNumber 
+                value={Number(gameState.auto_income)} 
+                decimals={2} 
+                prefix="$" 
+                suffix="/s" 
+              />
             </p>
             {skillBonuses && skillBonuses.passive_income > 0 && (
               <p className="text-sm text-green-400 mt-1">
-                +${Number(skillBonuses.passive_income).toFixed(2)}/s from skills
+                +<CountUpNumber 
+                  value={Number(skillBonuses.passive_income)} 
+                  decimals={2} 
+                  prefix="$" 
+                  suffix="/s from skills" 
+                />
               </p>
             )}
           </div>
@@ -184,14 +234,30 @@ export default function Dashboard() {
         )}
 
         {/* Click Button */}
-        <div className="mb-8 text-center">
+        <div className="mb-8 text-center relative">
           <button
             onClick={handleClick}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold py-8 px-16 rounded-full text-2xl transform transition hover:scale-105 active:scale-95 shadow-2xl"
+            className="relative bg-gradient-to-r from-blue-500 via-purple-600 to-pink-600 hover:from-blue-600 hover:via-purple-700 hover:to-pink-700 text-white font-bold py-10 px-20 rounded-full text-3xl transform transition-all duration-200 hover:scale-110 active:scale-95 shadow-2xl hover:shadow-purple-500/50 animate-pulse-glow group"
           >
-            💻 Write Code
-            <div className="text-sm mt-2">+${Number(gameState.click_power).toFixed(2)} per click</div>
+            <span className="relative z-10 flex flex-col items-center">
+              <span className="text-5xl mb-2 group-hover:animate-bounce-subtle">💻</span>
+              <span>Write Code</span>
+              <span className="text-sm mt-2 opacity-90">
+                +<CountUpNumber 
+                  value={Number(gameState.click_power)} 
+                  decimals={2} 
+                  prefix="$" 
+                  suffix=" per click" 
+                />
+              </span>
+            </span>
+            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-400/20 to-purple-400/20 blur-xl group-hover:blur-2xl transition-all duration-200"></div>
           </button>
+          <ParticleEffect 
+            trigger={clickParticle} 
+            text={`+$${Number(gameState.click_power).toFixed(2)}`} 
+            color="text-green-400" 
+          />
         </div>
 
         {/* Upgrades */}
@@ -261,28 +327,70 @@ export default function Dashboard() {
 
           <button
             onClick={() => router.push('/dashboard/employees')}
-            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center"
+            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center transform transition hover:scale-105"
           >
             <div className="text-3xl mb-2">👥</div>
-            <div>Employees</div>
+            <div className="font-bold">Employees</div>
+            <div className="text-xs text-gray-400 mt-1">Manage Team</div>
           </button>
 
           <button
             onClick={() => router.push('/dashboard/company')}
-            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center"
+            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center transform transition hover:scale-105"
           >
             <div className="text-3xl mb-2">🏢</div>
-            <div>Company</div>
+            <div className="font-bold">Company</div>
+            <div className="text-xs text-gray-400 mt-1">Your Business</div>
           </button>
 
           <button
             onClick={() => router.push('/dashboard/leaderboard')}
-            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center"
+            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center transform transition hover:scale-105"
           >
             <div className="text-3xl mb-2">🏆</div>
-            <div>Leaderboard</div>
+            <div className="font-bold">Leaderboard</div>
+            <div className="text-xs text-gray-400 mt-1">Top Players</div>
+          </button>
+
+          <button
+            onClick={() => router.push('/dashboard/achievements')}
+            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center transform transition hover:scale-105"
+          >
+            <div className="text-3xl mb-2">🏅</div>
+            <div className="font-bold">Achievements</div>
+            <div className="text-xs text-gray-400 mt-1">Unlock Rewards</div>
+          </button>
+
+          <button
+            onClick={() => router.push('/dashboard/shop')}
+            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center transform transition hover:scale-105"
+          >
+            <div className="text-3xl mb-2">🛒</div>
+            <div className="font-bold">Shop</div>
+            <div className="text-xs text-gray-400 mt-1">Buy Items</div>
           </button>
         </div>
+
+        {/* Prestige Button (if eligible) */}
+        {gameState && gameState.level >= 50 && gameState.money >= 1000000 && (
+          <div className="mt-8 bg-gradient-to-r from-yellow-900/50 to-orange-900/50 border-2 border-yellow-500 rounded-lg p-6 text-center animate-pulse-glow">
+            <h2 className="text-2xl font-bold mb-2">✨ Prestige Available!</h2>
+            <p className="text-gray-300 mb-4">Reset your progress for permanent bonuses!</p>
+            <button
+              onClick={() => {
+                if (confirm('Are you sure? This will reset most of your progress but grant permanent bonuses!')) {
+                  gameAPI.prestige().then(() => {
+                    alert('Prestiged! Enjoy your bonuses!');
+                    loadGameState();
+                  }).catch((err) => alert(err.response?.data?.error || 'Failed to prestige'));
+                }
+              }}
+              className="bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 px-8 py-3 rounded-lg font-bold text-xl shadow-lg"
+            >
+              ✨ PRESTIGE NOW ✨
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

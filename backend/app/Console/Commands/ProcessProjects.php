@@ -51,18 +51,22 @@ class ProcessProjects extends Command
                 $progressRate *= (1 + $skillBonus);
             }
             
-            // Check if project has assigned employees
-            $assignedEmployees = $project->tasks()
-                ->whereNotNull('assigned_employee_id')
-                ->with('assignedEmployee')
-                ->get();
+            // Check if project has assigned employees (via assigned_project_id)
+            $assignedEmployees = Employee::where('assigned_project_id', $project->id)->get();
             
             if ($assignedEmployees->count() > 0) {
-                // Employees speed up progress
-                $totalProductivity = $assignedEmployees->sum(function ($task) {
-                    return $task->assignedEmployee ? 
-                        $task->assignedEmployee->getEffectiveProductivity() : 0;
-                });
+                // Employees speed up progress based on their effective productivity
+                $totalProductivity = 0;
+                
+                foreach ($assignedEmployees as $employee) {
+                    // Add employee's effective productivity
+                    $totalProductivity += $employee->getEffectiveProductivity();
+                    
+                    // Decrease energy and morale while working
+                    $employee->energy = max(0, $employee->energy - 1);
+                    $employee->updateMorale();
+                    $employee->save();
+                }
                 
                 $progressRate += ($totalProductivity / 100);
             }
@@ -74,6 +78,21 @@ class ProcessProjects extends Command
             if ($project->progress >= 100) {
                 $project->status = 'completed';
                 $project->progress = 100;
+                
+                // Give XP to employees who worked on this project
+                foreach ($assignedEmployees as $employee) {
+                    $xpGain = $project->difficulty * 20; // 20 XP per difficulty level
+                    $leveledUp = $employee->addExperience($xpGain);
+                    
+                    $employee->projects_completed += 1;
+                    $employee->assigned_project_id = null;
+                    $employee->status = 'idle';
+                    $employee->save();
+                    
+                    if ($leveledUp) {
+                        $this->info("{$employee->name} leveled up to level {$employee->level}!");
+                    }
+                }
                 
                 $this->info("Project #{$project->id} '{$project->title}' completed!");
             }

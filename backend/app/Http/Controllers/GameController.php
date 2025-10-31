@@ -73,6 +73,8 @@ class GameController extends Controller
         // Add click power to money
         $earnedMoney = $finalClickPower;
         $gameState->money += $earnedMoney;
+        $gameState->lifetime_earnings += $earnedMoney;
+        $gameState->total_clicks += 1;
         $gameState->xp += 1; // Earn 1 XP per click
         $gameState->last_active = now();
 
@@ -86,7 +88,7 @@ class GameController extends Controller
         $gameState->save();
 
         // Update leaderboard
-        $this->updateLeaderboard($user->id, $gameState->money);
+        $this->updateLeaderboard($user->id, $gameState);
 
         return response()->json([
             'money' => $gameState->money,
@@ -147,53 +149,128 @@ class GameController extends Controller
         $user = $request->user();
         $gameState = $user->gameState;
 
-        // Check if eligible for prestige (e.g., reached level 50)
-        if ($gameState->level < 50) {
-            return response()->json(['error' => 'Not eligible for prestige yet'], 400);
+        // Check if eligible for prestige (level 50+ and $1M+)
+        if ($gameState->level < 50 || $gameState->money < 1000000) {
+            return response()->json([
+                'error' => 'Not eligible for prestige yet',
+                'requirements' => [
+                    'level' => 50,
+                    'money' => 1000000,
+                ],
+                'current' => [
+                    'level' => $gameState->level,
+                    'money' => $gameState->money,
+                ],
+            ], 400);
         }
 
         // Calculate prestige points based on progress
-        $prestigePoints = floor($gameState->level / 10);
+        $prestigePoints = floor($gameState->level / 10) + floor($gameState->money / 1000000);
+        $achievementsCount = $user->achievements()->count();
+        $prestigePoints += floor($achievementsCount / 5); // Bonus for achievements
 
-        // Reset game state but keep prestige points
-        $user->prestige_points += $prestigePoints;
-        $user->level = 1;
-        $user->save();
+        // Save old stats
+        $oldLevel = $gameState->level;
+        $oldMoney = $gameState->money;
 
+        // Increase prestige level and points
+        $gameState->prestige_level += 1;
+        $gameState->prestige_points += $prestigePoints;
+
+        // Reset game state but keep prestige bonuses
         $gameState->money = 100;
-        $gameState->click_power = 1 + ($user->prestige_points * 0.1); // Bonus from prestige
+        $gameState->click_power = 1 * (1 + ($gameState->prestige_points * 0.1)); // +10% per prestige point
         $gameState->auto_income = 0;
         $gameState->xp = 0;
         $gameState->level = 1;
+        $gameState->reputation = 0;
+        $gameState->completed_projects = 0;
+        $gameState->total_clicks = 0;
         $gameState->upgrades = [];
         $gameState->save();
 
+        // Keep skills, achievements, and prestige level
+        // Delete projects and employees
+        $user->projects()->delete();
+        $company = $user->companies()->first();
+        if ($company) {
+            $company->employees()->delete();
+        }
+
         return response()->json([
             'success' => true,
-            'prestige_points' => $user->prestige_points,
+            'message' => "Prestige Level {$gameState->prestige_level}! Earned {$prestigePoints} prestige points!",
+            'prestige_level' => $gameState->prestige_level,
+            'prestige_points' => $gameState->prestige_points,
+            'points_gained' => $prestigePoints,
+            'old_stats' => [
+                'level' => $oldLevel,
+                'money' => $oldMoney,
+            ],
             'data' => $gameState,
         ]);
     }
 
     public function leaderboard(Request $request)
     {
-        $leaderboard = Leaderboard::with('user')
-            ->orderBy('rank')
-            ->limit(100)
-            ->get();
+        $category = $request->get('category', 'money'); // money, level, reputation, projects
+        $currentUserId = $request->user()->id;
 
-        return response()->json($leaderboard);
+        // Get top 100 by category
+        $orderColumn = match($category) {
+            'level' => 'level',
+            'reputation' => 'reputation',
+            'projects' => 'projects_completed',
+            default => 'money',
+        };
+
+        $leaderboard = Leaderboard::with('user:id,name')
+            ->orderBy($orderColumn, 'desc')
+            ->limit(100)
+            ->get()
+            ->map(function ($entry, $index) use ($currentUserId, $category) {
+                return [
+                    'rank' => $index + 1,
+                    'user_id' => $entry->user_id,
+                    'name' => $entry->user->name ?? 'Unknown',
+                    'money' => $entry->money,
+                    'level' => $entry->level,
+                    'reputation' => $entry->reputation,
+                    'projects_completed' => $entry->projects_completed,
+                    'is_current_user' => $entry->user_id === $currentUserId,
+                ];
+            });
+
+        // Find current user's rank if not in top 100
+        $currentUserEntry = Leaderboard::where('user_id', $currentUserId)->first();
+        $currentUserRank = null;
+        
+        if ($currentUserEntry && !$leaderboard->where('is_current_user', true)->first()) {
+            // Calculate rank
+            $higherRanked = Leaderboard::where($orderColumn, '>', $currentUserEntry->$orderColumn)->count();
+            $currentUserRank = [
+                'rank' => $higherRanked + 1,
+                'user_id' => $currentUserEntry->user_id,
+                'name' => $request->user()->name,
+                'money' => $currentUserEntry->money,
+                'level' => $currentUserEntry->level,
+                'reputation' => $currentUserEntry->reputation,
+                'projects_completed' => $currentUserEntry->projects_completed,
+                'is_current_user' => true,
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'category' => $category,
+            'leaderboard' => $leaderboard,
+            'current_user_rank' => $currentUserRank,
+        ]);
     }
 
-    private function updateLeaderboard($userId, $score)
+    private function updateLeaderboard($userId, $gameState)
     {
-        Leaderboard::updateOrCreate(
-            ['user_id' => $userId],
-            ['score' => $score]
-        );
-
-        // Update rankings (could be done via queue for performance)
-        Leaderboard::updateRankings();
+        Leaderboard::updateEntry($userId, $gameState);
     }
 
     private function getUpgradeBaseCost($upgradeType): float

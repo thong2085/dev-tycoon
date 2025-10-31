@@ -11,10 +11,15 @@ class Leaderboard extends Model
         'user_id',
         'rank',
         'score',
+        'money',
+        'level',
+        'reputation',
+        'projects_completed',
     ];
 
     protected $casts = [
         'score' => 'decimal:2',
+        'money' => 'decimal:2',
     ];
 
     public function user(): BelongsTo
@@ -23,7 +28,7 @@ class Leaderboard extends Model
     }
 
     /**
-     * Update leaderboard rankings
+     * Update leaderboard rankings based on score (money by default)
      */
     public static function updateRankings(): void
     {
@@ -32,6 +37,26 @@ class Leaderboard extends Model
         foreach ($rankings as $index => $entry) {
             $entry->update(['rank' => $index + 1]);
         }
+    }
+
+    /**
+     * Update or create leaderboard entry for a user
+     */
+    public static function updateEntry($userId, $gameState): void
+    {
+        self::updateOrCreate(
+            ['user_id' => $userId],
+            [
+                'score' => $gameState->money, // Primary score = money
+                'money' => $gameState->money,
+                'level' => $gameState->level,
+                'reputation' => $gameState->reputation ?? 0,
+                'projects_completed' => $gameState->completed_projects ?? 0,
+            ]
+        );
+
+        // Update rankings
+        self::updateRankings();
     }
 }
 
