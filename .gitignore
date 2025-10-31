@@ -1,0 +1,25 @@
+# Dev Tycoon - Root .gitignore
+
+# Word documents (design docs)
+*.docx
+*.doc
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+.env*.local
+
