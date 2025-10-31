@@ -8,21 +8,33 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Product extends Model
 {
     protected $fillable = [
+        'user_id',
         'company_id',
+        'source_project_id',
         'name',
-        'type',
-        'active_users',
-        'revenue_per_tick',
-        'version',
+        'description',
+        'base_monthly_revenue',
+        'upkeep',
+        'growth_rate',
+        'active',
+        'launched_at',
     ];
 
     protected $casts = [
-        'revenue_per_tick' => 'decimal:2',
+        'base_monthly_revenue' => 'decimal:2',
+        'upkeep' => 'decimal:2',
+        'growth_rate' => 'decimal:4',
+        'active' => 'boolean',
+        'launched_at' => 'datetime',
     ];
 
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
-}
 
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+}

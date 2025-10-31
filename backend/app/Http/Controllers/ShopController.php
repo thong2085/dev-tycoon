@@ -57,13 +57,16 @@ class ShopController extends Controller
         ]);
 
         // Apply instant effects
+        $effectMessage = null;
         if ($item->effect_type === 'instant') {
-            $this->applyInstantEffect($user, $item);
+            $effectMessage = $this->applyInstantEffect($user, $item);
         }
+
+        $message = $effectMessage ?? "Purchased {$item->name}!";
 
         return response()->json([
             'success' => true,
-            'message' => "Purchased {$item->name}!",
+            'message' => $message,
             'purchase' => $purchase,
             'game_state' => $gameState,
         ]);
@@ -95,15 +98,48 @@ class ShopController extends Controller
 
         switch ($effect['type'] ?? null) {
             case 'reputation':
-                $gameState->reputation += $effect['amount'] ?? 0;
+                $amount = $effect['amount'] ?? 0;
+                $gameState->reputation += $amount;
                 $gameState->save();
-                break;
+                return "Gained +{$amount} reputation! 🌟";
             
             case 'skill_xp':
-                // Add XP to random skill or all skills
-                $gameState->xp += $effect['amount'] ?? 0;
-                $gameState->save();
-                break;
+                // Max level a random unlocked skill
+                // Find user_skills that can be upgraded (level < max_level)
+                $userSkill = \App\Models\UserSkill::where('user_skills.user_id', $user->id)
+                    ->join('skills', 'user_skills.skill_id', '=', 'skills.id')
+                    ->whereColumn('user_skills.level', '<', 'skills.max_level')
+                    ->select('user_skills.*', 'skills.max_level', 'skills.name', 'skills.icon')
+                    ->inRandomOrder()
+                    ->first();
+                
+                if ($userSkill) {
+                    $oldLevel = $userSkill->level;
+                    $userSkill->level = $userSkill->max_level;
+                    $userSkill->save();
+                    
+                    return "⭐ Maxed out {$userSkill->icon} {$userSkill->name} (Lv {$oldLevel} → {$userSkill->max_level})!";
+                } else {
+                    // If no skill to max, unlock a random locked skill
+                    // Find skills that user doesn't have yet
+                    $unlockedSkillIds = \App\Models\UserSkill::where('user_id', $user->id)->pluck('skill_id');
+                    $lockedSkill = \App\Models\Skill::whereNotIn('id', $unlockedSkillIds)
+                        ->inRandomOrder()
+                        ->first();
+                    
+                    if ($lockedSkill) {
+                        \App\Models\UserSkill::create([
+                            'user_id' => $user->id,
+                            'skill_id' => $lockedSkill->id,
+                            'level' => 1,
+                            'experience' => 0,
+                        ]);
+                        
+                        return "🔓 Unlocked new skill: {$lockedSkill->icon} {$lockedSkill->name}!";
+                    }
+                    
+                    return "💡 All skills are already maxed out!";
+                }
             
             case 'complete_project':
                 // Complete current project
@@ -112,9 +148,12 @@ class ShopController extends Controller
                     $project->progress = 100;
                     $project->status = 'completed';
                     $project->save();
+                    return "⚡ Instantly completed: {$project->title}!";
                 }
-                break;
+                return "No project in progress to complete.";
         }
+        
+        return null;
     }
 }
 

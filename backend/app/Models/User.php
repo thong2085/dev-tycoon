@@ -62,6 +62,14 @@ class User extends Authenticatable
         return $this->hasMany(Company::class);
     }
 
+    /**
+     * Get user's primary company (accessor)
+     */
+    public function getCompanyAttribute()
+    {
+        return $this->companies()->first();
+    }
+
     public function projects(): HasMany
     {
         return $this->hasMany(Project::class);

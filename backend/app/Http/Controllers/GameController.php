@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\GameState;
 use App\Models\Leaderboard;
 use App\Models\MarketEvent;
+use App\Events\PlayerPrestiged;
+use App\Events\LeaderboardUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -196,6 +198,12 @@ class GameController extends Controller
         if ($company) {
             $company->employees()->delete();
         }
+
+        // Broadcast prestige event
+        broadcast(new PlayerPrestiged($user, $gameState->prestige_level, $prestigePoints));
+
+        // Update leaderboard broadcast
+        broadcast(new LeaderboardUpdated('money'));
 
         return response()->json([
             'success' => true,

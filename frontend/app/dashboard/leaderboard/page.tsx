@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { leaderboardAPI } from '@/lib/api';
 import { LeaderboardEntry } from '@/types/game';
+import { usePusher } from '@/hooks/usePusher';
+import PusherStatus from '@/components/PusherStatus';
 
 type Category = 'money' | 'level' | 'reputation' | 'projects';
 
@@ -14,19 +16,10 @@ export default function LeaderboardPage() {
   const [category, setCategory] = useState<Category>('money');
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [liveUpdateBadge, setLiveUpdateBadge] = useState(false);
 
-  useEffect(() => {
-    loadLeaderboard();
-    
-    // Auto-refresh every 10 seconds
-    const interval = setInterval(() => {
-      loadLeaderboard();
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [category]);
-
-  const loadLeaderboard = async () => {
+  // Load leaderboard function (memoized for Pusher callback)
+  const loadLeaderboard = useCallback(async () => {
     try {
       const data = await leaderboardAPI.getLeaderboard(category);
       setLeaderboard(data.leaderboard || []);
@@ -37,7 +30,33 @@ export default function LeaderboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [category]);
+
+  // Pusher realtime listener
+  const { isConnected } = usePusher({
+    channel: 'global-activities',
+    events: {
+      'leaderboard.updated': (data: any) => {
+        console.log('📊 Leaderboard updated!', data);
+        // Show live update badge
+        setLiveUpdateBadge(true);
+        setTimeout(() => setLiveUpdateBadge(false), 3000);
+        // Auto-refresh leaderboard
+        loadLeaderboard();
+      },
+    },
+  });
+
+  useEffect(() => {
+    loadLeaderboard();
+    
+    // Auto-refresh every 30 seconds (Pusher will handle real-time updates)
+    const interval = setInterval(() => {
+      loadLeaderboard();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [loadLeaderboard]);
 
   const getCategoryIcon = (cat: Category) => {
     switch (cat) {
@@ -96,21 +115,38 @@ export default function LeaderboardPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-8 animate-fade-in">
           <button
             onClick={() => router.push('/dashboard')}
-            className="text-gray-400 hover:text-white mb-4 flex items-center gap-2"
+            className="text-purple-400 hover:text-purple-300 mb-4 flex items-center gap-2 transition-colors group"
           >
-            ← Back to Dashboard
+            <span className="group-hover:-translate-x-1 transition-transform">←</span>
+            Back to Dashboard
           </button>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-4xl font-bold mb-2">🏆 Global Leaderboard</h1>
+              <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+                🏆 Global Leaderboard
+              </h1>
               <p className="text-gray-400">Compete with developers worldwide!</p>
             </div>
-            <div className="text-right text-sm text-gray-400">
-              <div>Last updated:</div>
-              <div>{lastUpdate.toLocaleTimeString()}</div>
+            <div className="flex items-center gap-4">
+              {/* Live Update Badge */}
+              {liveUpdateBadge && (
+                <div className="bg-gradient-to-r from-green-600 to-green-500 px-4 py-2 rounded-lg font-bold text-sm shadow-lg animate-bounce-subtle flex items-center gap-2">
+                  <span className="animate-ping-once">🔴</span>
+                  <span>LIVE UPDATE!</span>
+                </div>
+              )}
+              {/* Connection Status */}
+              <div className="bg-gray-800/50 border border-gray-700 px-4 py-2 rounded-lg">
+                <div className="flex items-center gap-2 mb-1">
+                  <PusherStatus isConnected={isConnected} />
+                </div>
+                <div className="text-xs text-gray-400">
+                  {lastUpdate.toLocaleTimeString()}
+                </div>
+              </div>
             </div>
           </div>
         </div>

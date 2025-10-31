@@ -2,11 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { gameAPI } from '@/lib/api';
+import { gameAPI, achievementAPI } from '@/lib/api';
 import { GameState, Company, MarketEvent } from '@/types/game';
 import CountUpNumber from '@/components/CountUpNumber';
 import { SkeletonCard } from '@/components/Skeleton';
 import ParticleEffect from '@/components/ParticleEffect';
+import Toast from '@/components/Toast';
+import ConfirmModal from '@/components/ConfirmModal';
+import PusherDebugConsole from '@/components/PusherDebugConsole';
+import NotificationBadge from '@/components/NotificationBadge';
+import axios from 'axios';
+import Pusher from 'pusher-js';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -17,17 +23,88 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [skillBonuses, setSkillBonuses] = useState<any>(null);
   const [clickParticle, setClickParticle] = useState(0);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
+  const [notificationCounts, setNotificationCounts] = useState<{ projects: number; achievements: number; employees: number }>({ 
+    projects: 0, 
+    achievements: 0, 
+    employees: 0 
+  });
+
+  // Get user ID for private channel
+  const [userId, setUserId] = useState<number | null>(null);
 
   useEffect(() => {
     loadGameState();
+    loadNotificationCounts();
     
     // Setup auto-refresh every 5 seconds
     const interval = setInterval(() => {
       loadGameState();
+      loadNotificationCounts();
     }, 5000);
 
     return () => clearInterval(interval);
   }, []);
+
+  // Get user ID
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+        const response = await axios.get(`${API_URL}/auth/user`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        setUserId(response.data.id);
+      } catch (error) {
+        console.error('Failed to fetch user:', error);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+  // Listen for realtime notification events
+  useEffect(() => {
+    if (!userId) return;
+
+    // Initialize Pusher
+    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY || '', {
+      cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER || 'ap1',
+    });
+
+    // Subscribe to private channel (for this it's public channel for simplicity)
+    const channelName = `user.${userId}`;
+    const channel = pusher.subscribe(channelName);
+
+    console.log(`📡 Subscribed to notifications channel: ${channelName}`);
+
+    // Project completed
+    channel.bind('project.completed', (data: any) => {
+      console.log('🎉 Project completed (realtime):', data);
+      setToast({ 
+        message: `🎉 ${data.message}`, 
+        type: 'success' 
+      });
+      loadNotificationCounts(); // Refresh counts
+    });
+
+    // Notification count updated
+    channel.bind('notification.updated', (data: any) => {
+      console.log('🔔 Notification updated (realtime):', data);
+      setNotificationCounts(data.counts);
+    });
+
+    return () => {
+      channel.unbind_all();
+      pusher.unsubscribe(channelName);
+      pusher.disconnect();
+    };
+  }, [userId]);
 
   const loadGameState = async () => {
     try {
@@ -52,6 +129,24 @@ export default function Dashboard() {
       console.error('Failed to load game state:', error);
       localStorage.removeItem('token');
       router.push('/login');
+    }
+  };
+
+  const loadNotificationCounts = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      const response = await axios.get(`${API_URL}/notifications/counts`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        setNotificationCounts(response.data.counts);
+      }
+    } catch (error) {
+      console.error('Failed to load notifications:', error);
     }
   };
 
@@ -85,7 +180,10 @@ export default function Dashboard() {
         setGameState(data.data);
       }
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to buy upgrade');
+      setToast({ 
+        message: error.response?.data?.error || 'Failed to buy upgrade', 
+        type: 'error' 
+      });
     }
   };
 
@@ -306,11 +404,12 @@ export default function Dashboard() {
         )}
 
         {/* Quick Links */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-4">
           <button
             onClick={() => router.push('/dashboard/projects')}
-            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center transform transition hover:scale-105"
+            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center transform transition hover:scale-105 relative"
           >
+            <NotificationBadge count={notificationCounts.projects} />
             <div className="text-3xl mb-2">📋</div>
             <div className="font-bold">Projects</div>
             <div className="text-xs text-gray-400 mt-1">Find Jobs</div>
@@ -327,8 +426,9 @@ export default function Dashboard() {
 
           <button
             onClick={() => router.push('/dashboard/employees')}
-            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center transform transition hover:scale-105"
+            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center transform transition hover:scale-105 relative"
           >
+            <NotificationBadge count={notificationCounts.employees} />
             <div className="text-3xl mb-2">👥</div>
             <div className="font-bold">Employees</div>
             <div className="text-xs text-gray-400 mt-1">Manage Team</div>
@@ -354,11 +454,21 @@ export default function Dashboard() {
 
           <button
             onClick={() => router.push('/dashboard/achievements')}
-            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center transform transition hover:scale-105"
+            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center transform transition hover:scale-105 relative"
           >
+            <NotificationBadge count={notificationCounts.achievements} />
             <div className="text-3xl mb-2">🏅</div>
             <div className="font-bold">Achievements</div>
             <div className="text-xs text-gray-400 mt-1">Unlock Rewards</div>
+          </button>
+
+          <button
+            onClick={() => router.push('/dashboard/products')}
+            className="bg-gray-800 hover:bg-gray-700 p-6 rounded-lg text-center transform transition hover:scale-105"
+          >
+            <div className="text-3xl mb-2">📦</div>
+            <div className="font-bold">Products</div>
+            <div className="text-xs text-gray-400 mt-1">Revenue</div>
           </button>
 
           <button
@@ -369,6 +479,42 @@ export default function Dashboard() {
             <div className="font-bold">Shop</div>
             <div className="text-xs text-gray-400 mt-1">Buy Items</div>
           </button>
+
+          <button
+            onClick={() => router.push('/dashboard/ai-generator')}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 p-6 rounded-lg text-center transform transition hover:scale-105 animate-pulse-glow"
+          >
+            <div className="text-3xl mb-2">🤖</div>
+            <div className="font-bold">AI Generator</div>
+            <div className="text-xs text-blue-100 mt-1">✨ Powered by Gemini</div>
+          </button>
+        </div>
+
+        {/* Test Notification Button (for testing only) */}
+        <div className="mt-8 text-center">
+          <button
+            onClick={() => {
+              // Manually check achievements to trigger notifications
+              achievementAPI.checkAchievements().then((result) => {
+                if (result.count > 0) {
+                  setToast({ 
+                    message: `🎉 Unlocked ${result.count} achievements! Check other tab for realtime notification!`, 
+                    type: 'success' 
+                  });
+                } else {
+                  setToast({ 
+                    message: '💡 No new achievements yet. Play more to unlock!', 
+                    type: 'info' 
+                  });
+                }
+              }).catch(() => {
+                setToast({ message: 'Failed to check achievements', type: 'error' });
+              });
+            }}
+            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 px-6 py-3 rounded-lg font-bold"
+          >
+            🧪 Test: Check Achievements (Realtime)
+          </button>
         </div>
 
         {/* Prestige Button (if eligible) */}
@@ -378,12 +524,21 @@ export default function Dashboard() {
             <p className="text-gray-300 mb-4">Reset your progress for permanent bonuses!</p>
             <button
               onClick={() => {
-                if (confirm('Are you sure? This will reset most of your progress but grant permanent bonuses!')) {
-                  gameAPI.prestige().then(() => {
-                    alert('Prestiged! Enjoy your bonuses!');
-                    loadGameState();
-                  }).catch((err) => alert(err.response?.data?.error || 'Failed to prestige'));
-                }
+                setConfirmModal({
+                  title: '✨ Prestige Confirmation',
+                  message: 'Are you sure? This will reset most of your progress but grant permanent bonuses!',
+                  onConfirm: () => {
+                    gameAPI.prestige().then(() => {
+                      setToast({ message: '✨ Prestiged! Enjoy your bonuses!', type: 'success' });
+                      loadGameState();
+                    }).catch((err) => {
+                      setToast({ 
+                        message: err.response?.data?.error || 'Failed to prestige', 
+                        type: 'error' 
+                      });
+                    });
+                  }
+                });
               }}
               className="bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 px-8 py-3 rounded-lg font-bold text-xl shadow-lg"
             >
@@ -392,6 +547,32 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Confirm Modal */}
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={() => {
+            confirmModal.onConfirm();
+            setConfirmModal(null);
+          }}
+          onCancel={() => setConfirmModal(null)}
+          type="warning"
+        />
+      )}
+
+      {/* Pusher Debug Console (DEV ONLY) */}
+      {process.env.NODE_ENV === 'development' && <PusherDebugConsole />}
     </div>
   );
 }

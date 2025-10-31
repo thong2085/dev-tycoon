@@ -10,11 +10,28 @@ class CompanyController extends Controller
     public function show(Request $request)
     {
         $user = $request->user();
-        $company = $user->companies()->with(['employees', 'projects', 'products'])->first();
+        $company = Company::where('user_id', $user->id)
+            ->with(['employees', 'projects', 'products'])
+            ->first();
 
         if (!$company) {
             return response()->json(['error' => 'Company not found'], 404);
         }
+
+        // Calculate monthly costs (total employee salaries + product upkeep)
+        $salaryCosts = $company->employees->sum('salary');
+        $productUpkeep = $company->products->sum('upkeep');
+        $company->monthly_costs = $salaryCosts + $productUpkeep;
+
+        // Calculate monthly revenue from active products (with growth)
+        $productRevenue = 0;
+        foreach ($company->products as $product) {
+            if (!$product->active) continue;
+            $months = max(0, now()->diffInMonths($product->launched_at));
+            $productRevenue += (float)$product->base_monthly_revenue * pow(1 + (float)$product->growth_rate, $months);
+        }
+        $company->monthly_revenue = $productRevenue;
+        $company->save();
 
         return response()->json($company);
     }
@@ -46,7 +63,7 @@ class CompanyController extends Controller
         ]);
 
         $user = $request->user();
-        $company = $user->companies()->first();
+        $company = Company::where('user_id', $user->id)->first();
 
         if (!$company) {
             return response()->json(['error' => 'Company not found'], 404);

@@ -63,9 +63,19 @@ class ProcessProjects extends Command
                     $totalProductivity += $employee->getEffectiveProductivity();
                     
                     // Decrease energy and morale while working
+                    $oldEnergy = $employee->energy;
+                    $oldMorale = $employee->morale;
+                    
                     $employee->energy = max(0, $employee->energy - 1);
                     $employee->updateMorale();
                     $employee->save();
+                    
+                    // Broadcast if employee now needs rest (crossed threshold)
+                    if (($oldEnergy >= 30 && $employee->energy < 30) || 
+                        ($oldMorale >= 30 && $employee->morale < 30)) {
+                        // Employee just crossed into "needs rest" territory
+                        $this->broadcastNotificationUpdate($user);
+                    }
                 }
                 
                 $progressRate += ($totalProductivity / 100);
@@ -94,6 +104,10 @@ class ProcessProjects extends Command
                     }
                 }
                 
+                // Broadcast realtime notification
+                broadcast(new \App\Events\ProjectCompleted($project));
+                $this->broadcastNotificationUpdate($user);
+                
                 $this->info("Project #{$project->id} '{$project->title}' completed!");
             }
             
@@ -109,6 +123,35 @@ class ProcessProjects extends Command
         $this->info("Processed {$projects->count()} active projects");
         
         return Command::SUCCESS;
+    }
+
+    /**
+     * Broadcast notification count update to user
+     */
+    protected function broadcastNotificationUpdate($user): void
+    {
+        $company = $user->company;
+        
+        $counts = [
+            'projects' => \App\Models\Project::where('user_id', $user->id)
+                ->where('status', 'completed')
+                ->count(),
+            'achievements' => $user->achievements()
+                ->wherePivot('unlocked_at', '>=', now()->subHours(24))
+                ->count(),
+            'employees' => 0,
+        ];
+        
+        if ($company) {
+            $counts['employees'] = \App\Models\Employee::where('company_id', $company->id)
+                ->where(function ($query) {
+                    $query->where('energy', '<', 30)
+                          ->orWhere('morale', '<', 30);
+                })
+                ->count();
+        }
+        
+        broadcast(new \App\Events\NotificationUpdated($user->id, $counts));
     }
 }
 

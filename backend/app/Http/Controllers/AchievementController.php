@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Achievement;
+use App\Events\AchievementUnlocked;
 use Illuminate\Http\Request;
 
 class AchievementController extends Controller
@@ -77,6 +78,9 @@ class AchievementController extends Controller
                 $gameState->xp += $achievement->reward_xp;
                 $gameState->prestige_points += $achievement->reward_prestige_points;
                 $gameState->save();
+
+                // Broadcast achievement unlock
+                broadcast(new AchievementUnlocked($user, $achievement));
 
                 $newlyUnlocked[] = [
                     'achievement' => $achievement,

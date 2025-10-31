@@ -74,6 +74,7 @@ export interface Project {
   title: string;
   description: string | null;
   difficulty: number;
+  required_reputation: number;
   reward: number;
   progress: number;
   started_at: string;

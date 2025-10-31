@@ -14,6 +14,7 @@ class Project extends Model
         'title',
         'description',
         'difficulty',
+        'required_reputation',
         'reward',
         'progress',
         'started_at',

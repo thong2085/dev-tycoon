@@ -22,6 +22,7 @@ module.exports = {
         'slide-down': 'slideDown 0.4s ease-out',
         'float': 'float 3s ease-in-out infinite',
         'ping-once': 'ping 1s cubic-bezier(0, 0, 0.2, 1)',
+        'shimmer': 'shimmer 2s ease-in-out infinite',
       },
       keyframes: {
         slideIn: {
@@ -59,6 +60,10 @@ module.exports = {
         float: {
           '0%, 100%': { transform: 'translateY(0px)' },
           '50%': { transform: 'translateY(-20px)' },
+        },
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
         },
       },
     },

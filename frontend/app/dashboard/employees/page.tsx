@@ -6,6 +6,9 @@ import { employeeAPI, projectAPI } from '@/lib/api';
 import { Employee, Project } from '@/types/game';
 import Toast from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
+import Skeleton, { SkeletonCard } from '@/components/Skeleton';
+import CountUpNumber from '@/components/CountUpNumber';
+import EmptyState from '@/components/EmptyState';
 
 export default function EmployeesPage() {
   const router = useRouter();
@@ -141,6 +144,14 @@ export default function EmployeesPage() {
     return 'text-red-400';
   };
 
+  // Explicit BG classes so Tailwind JIT keeps them (avoid dynamic replace)
+  const getMoraleBgColor = (morale: number) => {
+    if (morale >= 80) return 'bg-green-400';
+    if (morale >= 50) return 'bg-yellow-400';
+    if (morale >= 20) return 'bg-orange-400';
+    return 'bg-red-400';
+  };
+
   const getEnergyColor = (energy: number) => {
     if (energy >= 70) return 'bg-green-500';
     if (energy >= 40) return 'bg-yellow-500';
@@ -148,14 +159,6 @@ export default function EmployeesPage() {
   };
 
   const inProgressProjects = projects.filter(p => p.status === 'in_progress');
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white flex items-center justify-center">
-        <div className="text-2xl">Loading...</div>
-      </div>
-    );
-  }
 
   const teamStats = {
     totalEmployees: employees.length,
@@ -166,70 +169,138 @@ export default function EmployeesPage() {
     needingRest: employees.filter(e => e.needs_rest).length,
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white p-4 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          <Skeleton width="250px" height="40px" className="mb-8" />
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+            <Skeleton height="100px" />
+            <Skeleton height="100px" />
+            <Skeleton height="100px" />
+            <Skeleton height="100px" />
+            <Skeleton height="100px" />
+            <Skeleton height="100px" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="text-gray-400 hover:text-white mb-4 flex items-center gap-2"
-            >
-              ← Back to Dashboard
-            </button>
-            <h1 className="text-4xl font-bold">👥 Team Management</h1>
-            <p className="text-gray-400 mt-2">Build and manage your development team</p>
-          </div>
+        <div className="mb-8 animate-fade-in">
           <button
-            onClick={() => setShowHireModal(true)}
-            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 px-6 py-3 rounded-lg font-bold transition-all duration-200 shadow-lg hover:shadow-green-500/50"
+            onClick={() => router.push('/dashboard')}
+            className="text-purple-400 hover:text-purple-300 mb-4 flex items-center gap-2 transition-colors group"
           >
-            + Hire Employee
+            <span className="group-hover:-translate-x-1 transition-transform">←</span>
+            Back to Dashboard
           </button>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent mb-2">
+                👥 Team Management
+              </h1>
+              <p className="text-gray-400">Build and manage your development team</p>
+            </div>
+            <button
+              onClick={() => setShowHireModal(true)}
+              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 px-6 py-3 rounded-lg font-bold transition-all shadow-lg hover:shadow-green-500/50 hover:scale-105"
+            >
+              ✨ Hire Employee
+            </button>
+          </div>
         </div>
 
         {/* Team Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
-          <div className="bg-gradient-to-br from-blue-900/50 to-blue-800/30 border-2 border-blue-600/50 p-4 rounded-lg">
-            <div className="text-sm text-gray-400">Total Team</div>
-            <div className="text-3xl font-bold text-blue-400">{teamStats.totalEmployees}</div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8 animate-slide-up">
+          <div className="bg-gradient-to-br from-blue-900/50 to-blue-800/30 border border-blue-500/30 p-4 rounded-lg shadow-lg hover:shadow-blue-500/30 transition-all hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-gray-400 mb-1">Total Team</div>
+                <div className="text-2xl md:text-3xl font-bold text-blue-400">
+                  <CountUpNumber value={teamStats.totalEmployees} />
+                </div>
+              </div>
+              <div className="text-3xl">👥</div>
+            </div>
           </div>
-          <div className="bg-gradient-to-br from-green-900/50 to-green-800/30 border-2 border-green-600/50 p-4 rounded-lg">
-            <div className="text-sm text-gray-400">Working</div>
-            <div className="text-3xl font-bold text-green-400">{teamStats.working}</div>
+          <div className="bg-gradient-to-br from-green-900/50 to-green-800/30 border border-green-500/30 p-4 rounded-lg shadow-lg hover:shadow-green-500/30 transition-all hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-gray-400 mb-1">Working</div>
+                <div className="text-2xl md:text-3xl font-bold text-green-400">
+                  <CountUpNumber value={teamStats.working} />
+                </div>
+              </div>
+              <div className="text-3xl">⚡</div>
+            </div>
           </div>
-          <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 border-2 border-gray-600/50 p-4 rounded-lg">
-            <div className="text-sm text-gray-400">Idle</div>
-            <div className="text-3xl font-bold text-gray-400">{teamStats.idle}</div>
+          <div className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 border border-gray-500/30 p-4 rounded-lg shadow-lg hover:shadow-gray-500/30 transition-all hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-gray-400 mb-1">Idle</div>
+                <div className="text-2xl md:text-3xl font-bold text-gray-400">
+                  <CountUpNumber value={teamStats.idle} />
+                </div>
+              </div>
+              <div className="text-3xl">💤</div>
+            </div>
           </div>
-          <div className="bg-gradient-to-br from-purple-900/50 to-purple-800/30 border-2 border-purple-600/50 p-4 rounded-lg">
-            <div className="text-sm text-gray-400">Avg Level</div>
-            <div className="text-3xl font-bold text-purple-400">{teamStats.avgLevel}</div>
+          <div className="bg-gradient-to-br from-purple-900/50 to-purple-800/30 border border-purple-500/30 p-4 rounded-lg shadow-lg hover:shadow-purple-500/30 transition-all hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-gray-400 mb-1">Avg Level</div>
+                <div className="text-2xl md:text-3xl font-bold text-purple-400">
+                  <CountUpNumber value={Number(teamStats.avgLevel)} decimals={1} />
+                </div>
+              </div>
+              <div className="text-3xl">📈</div>
+            </div>
           </div>
-          <div className="bg-gradient-to-br from-yellow-900/50 to-yellow-800/30 border-2 border-yellow-600/50 p-4 rounded-lg">
-            <div className="text-sm text-gray-400">Avg Morale</div>
-            <div className="text-3xl font-bold text-yellow-400">{teamStats.avgMorale}%</div>
+          <div className="bg-gradient-to-br from-yellow-900/50 to-yellow-800/30 border border-yellow-500/30 p-4 rounded-lg shadow-lg hover:shadow-yellow-500/30 transition-all hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-gray-400 mb-1">Avg Morale</div>
+                <div className="text-2xl md:text-3xl font-bold text-yellow-400">
+                  <CountUpNumber value={teamStats.avgMorale} decimals={0} />%
+                </div>
+              </div>
+              <div className="text-3xl">😊</div>
+            </div>
           </div>
-          <div className="bg-gradient-to-br from-red-900/50 to-red-800/30 border-2 border-red-600/50 p-4 rounded-lg">
-            <div className="text-sm text-gray-400">Needs Rest</div>
-            <div className="text-3xl font-bold text-red-400">{teamStats.needingRest}</div>
+          <div className="bg-gradient-to-br from-red-900/50 to-red-800/30 border border-red-500/30 p-4 rounded-lg shadow-lg hover:shadow-red-500/30 transition-all hover:scale-105">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-gray-400 mb-1">Needs Rest</div>
+                <div className="text-2xl md:text-3xl font-bold text-red-400">
+                  <CountUpNumber value={teamStats.needingRest} />
+                </div>
+              </div>
+              <div className="text-3xl">😴</div>
+            </div>
           </div>
         </div>
 
         {/* Employees List */}
         {employees.length === 0 ? (
-          <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 border-2 border-gray-700 p-12 rounded-lg text-center">
-            <div className="text-6xl mb-4">👥</div>
-            <h2 className="text-2xl font-bold mb-2">No Employees Yet</h2>
-            <p className="text-gray-400 mb-6">Hire your first team member to get started!</p>
-            <button
-              onClick={() => setShowHireModal(true)}
-              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 px-6 py-3 rounded-lg font-bold"
-            >
-              Hire Your First Employee
-            </button>
-          </div>
+          <EmptyState
+            icon="👥"
+            title="No Employees Yet"
+            description="Hire your first team member to get started building your development team!"
+            action={{
+              label: "✨ Hire Your First Employee",
+              onClick: () => setShowHireModal(true)
+            }}
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {employees.map((employee) => (
@@ -283,7 +354,7 @@ export default function EmployeesPage() {
                     </div>
                     <div className="bg-gray-700 rounded-full h-2 overflow-hidden">
                       <div 
-                        className={`h-full transition-all duration-500 ${getMoraleColor(employee.morale).replace('text-', 'bg-')}`}
+                        className={`h-full transition-all duration-500 ${getMoraleBgColor(employee.morale)}`}
                         style={{ width: `${employee.morale}%` }}
                       />
                     </div>

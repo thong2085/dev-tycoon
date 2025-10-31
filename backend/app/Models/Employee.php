@@ -94,7 +94,7 @@ class Employee extends Model
     }
 
     /**
-     * Update morale based on various factors
+     * Update morale and energy based on various factors
      */
     public function updateMorale(): void
     {
@@ -103,7 +103,7 @@ class Employee extends Model
             $this->morale = max(0, $this->morale - 1);
         }
 
-        // Increase morale if resting
+        // Increase morale if resting/idle
         if ($this->status === 'idle' || $this->energy < 50) {
             $this->morale = min(100, $this->morale + 2);
         }
@@ -111,6 +111,11 @@ class Employee extends Model
         // Low energy affects morale
         if ($this->energy < 30) {
             $this->morale = max(0, $this->morale - 2);
+        }
+
+        // Restore energy when idle (not working)
+        if ($this->status === 'idle' && !$this->assigned_project_id) {
+            $this->energy = min(100, $this->energy + 3); // +3% energy per minute when resting
         }
 
         $this->save();

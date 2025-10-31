@@ -32,13 +32,25 @@ php artisan key:generate
 •	Cấu hình database trong .env (MySQL)
 •	Chạy migration:
 php artisan migrate --seed
-•	Chạy server:
+•	Chạy server (cách mới - recommended):
+php artisan serve:all
+# Hoặc dùng composer:
+composer serve
+
+# Cách cũ (chạy riêng):
 php artisan serve
+
+⚠️ **Lưu ý**: Game cần scheduler để auto-progress projects!
+- `serve:all` đã bao gồm scheduler
+- Nếu dùng `php artisan serve`, cần chạy thêm: `php artisan schedule:work`
+
 3️⃣ Cài đặt frontend (Next.js)
 cd frontend
 npm install
 npm run dev
 Frontend sẽ chạy ở http://localhost:3000 và kết nối đến API Laravel ở http://127.0.0.1:8000.
+
+**Quick Start**: Double-click `start-game.bat` trong thư mục gốc để tự động start tất cả services!
 ________________________________________
 🚀 Gameplay Core Loop
 1.	Freelancer Phase:

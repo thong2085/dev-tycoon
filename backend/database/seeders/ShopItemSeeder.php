@@ -88,7 +88,7 @@ class ShopItemSeeder extends Seeder
             [
                 'key' => 'skill_points',
                 'name' => 'Instant Skill Points',
-                'description' => 'Get enough XP to level up a skill!',
+                'description' => 'Instantly max out a random skill to its highest level!',
                 'icon' => '💡',
                 'category' => 'special',
                 'price' => 12000,

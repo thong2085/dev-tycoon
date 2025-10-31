@@ -10,6 +10,9 @@ use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\SkillController;
 use App\Http\Controllers\AchievementController;
 use App\Http\Controllers\ShopController;
+use App\Http\Controllers\AIController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProductController;
 
 /*
 |--------------------------------------------------------------------------
@@ -45,6 +48,8 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Projects
     Route::get('/projects', [ProjectController::class, 'index']);
+    Route::get('/projects/available', [ProjectController::class, 'availableJobs']);
+    Route::post('/projects/{id}/accept', [ProjectController::class, 'acceptJob']);
     Route::post('/projects/start', [ProjectController::class, 'start']);
     Route::post('/projects/{id}/claim', [ProjectController::class, 'claim']);
     Route::get('/projects/{id}', [ProjectController::class, 'show']);
@@ -72,9 +77,42 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/achievements/check', [AchievementController::class, 'checkAchievements']);
     Route::get('/achievements/unnotified', [AchievementController::class, 'getUnnotified']);
     
+    // Notifications
+    Route::get('/notifications/counts', [NotificationController::class, 'getCounts']);
+    Route::get('/notifications', [NotificationController::class, 'getNotifications']);
+    
     // Shop
     Route::get('/shop', [ShopController::class, 'index']);
     Route::post('/shop/purchase', [ShopController::class, 'purchase']);
     Route::get('/shop/purchases', [ShopController::class, 'getActivePurchases']);
+
+    // Products
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::get('/products/{id}', [ProductController::class, 'show']);
+    Route::post('/products/launch-from-project/{projectId}', [ProductController::class, 'launchFromProject']);
+    Route::post('/products/{id}/pause', [ProductController::class, 'pause']);
+    Route::post('/products/{id}/resume', [ProductController::class, 'resume']);
+    Route::delete('/products/{id}', [ProductController::class, 'retire']);
+    
+    // AI Generation
+    Route::prefix('ai')->group(function () {
+        Route::get('/test', [AIController::class, 'testConnection']);
+        
+        // Projects
+        Route::post('/generate/projects', [AIController::class, 'generateProjects']);
+        Route::post('/create/project', [AIController::class, 'createProject']);
+        
+        // Skills
+        Route::post('/generate/skills', [AIController::class, 'generateSkills']);
+        Route::post('/create/skill', [AIController::class, 'createSkill']);
+        
+        // Achievements
+        Route::post('/generate/achievements', [AIController::class, 'generateAchievements']);
+        Route::post('/create/achievement', [AIController::class, 'createAchievement']);
+        
+        // Employee & Company Names
+        Route::post('/generate/employee-names', [AIController::class, 'generateEmployeeNames']);
+        Route::post('/generate/company-names', [AIController::class, 'generateCompanyNames']);
+    });
 });
 

@@ -19,12 +19,15 @@ export default function CountUpNumber({
   suffix = '',
   className = '' 
 }: CountUpNumberProps) {
-  const [displayValue, setDisplayValue] = useState(value);
-  const prevValueRef = useRef(value);
+  // Ensure value is a valid number
+  const numValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+  
+  const [displayValue, setDisplayValue] = useState(numValue);
+  const prevValueRef = useRef(numValue);
 
   useEffect(() => {
     const startValue = prevValueRef.current;
-    const endValue = value;
+    const endValue = numValue;
     const startTime = Date.now();
     const difference = endValue - startValue;
 
@@ -49,11 +52,11 @@ export default function CountUpNumber({
     };
 
     requestAnimationFrame(animate);
-  }, [value, duration]);
+  }, [numValue, duration]);
 
   return (
     <span className={className}>
-      {prefix}{displayValue.toFixed(decimals)}{suffix}
+     {prefix}{Number(displayValue).toFixed(decimals)}{suffix} 
     </span>
   );
 }
