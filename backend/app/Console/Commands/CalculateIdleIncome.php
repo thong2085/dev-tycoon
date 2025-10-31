@@ -12,16 +12,20 @@ class CalculateIdleIncome extends Command
 
     public function handle()
     {
-        $gameStates = GameState::where('auto_income', '>', 0)->get();
+        $gameStates = GameState::where('auto_income', '>', 0)->with('user')->get();
 
         foreach ($gameStates as $gameState) {
-            // Add 1 minute worth of income (60 seconds)
-            $income = $gameState->auto_income * 60;
+            $user = $gameState->user;
             
-            $gameState->money += $income;
+            // Add 1 minute worth of income (60 seconds) + skill passive income
+            $baseIncome = $gameState->auto_income * 60;
+            $skillPassiveIncome = $user ? $user->getSkillPassiveIncome() * 60 : 0;
+            $totalIncome = $baseIncome + $skillPassiveIncome;
+            
+            $gameState->money += $totalIncome;
             $gameState->save();
             
-            $this->info("User #{$gameState->user_id}: +${$income}");
+            $this->info("User #{$gameState->user_id}: +${$totalIncome} (base: ${$baseIncome}, skills: ${$skillPassiveIncome})");
         }
 
         $this->info("Processed {$gameStates->count()} game states");

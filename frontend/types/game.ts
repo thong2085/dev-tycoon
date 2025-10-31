@@ -38,16 +38,17 @@ export interface Company {
 
 export interface Employee {
   id: number;
-  company_id: number;
+  company_id?: number;
   name: string;
-  role: string;
+  role: 'junior' | 'mid' | 'senior' | 'lead' | 'architect';
   productivity: number;
   skill_level: number;
   salary: number;
   energy: number;
   status: 'working' | 'idle' | 'quit';
+  effective_productivity?: number;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface Project {

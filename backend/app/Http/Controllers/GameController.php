@@ -31,11 +31,28 @@ class GameController extends Controller
         // Get active market events
         $activeEvents = MarketEvent::getActiveEvents();
 
+        // Get skill bonuses
+        $skillPassiveIncome = $user->getSkillPassiveIncome();
+        $skillClickBonus = $user->getSkillClickPowerBonus();
+        $totalSkillLevels = $user->getTotalSkillLevels();
+        $maxedSkills = $user->getMaxedSkillsCount();
+
+        // Update auto_income to include skill passive income
+        $effectiveAutoIncome = $gameState->auto_income + $skillPassiveIncome;
+
         return response()->json([
-            'game_state' => $gameState,
+            'success' => true,
+            'data' => $gameState,
             'offline_income' => $offlineIncome,
             'active_events' => $activeEvents,
             'company' => $gameState->company,
+            'skill_bonuses' => [
+                'passive_income' => $skillPassiveIncome,
+                'click_power_bonus' => $skillClickBonus,
+                'total_skill_levels' => $totalSkillLevels,
+                'maxed_skills' => $maxedSkills,
+                'effective_auto_income' => $effectiveAutoIncome,
+            ],
         ]);
     }
 
@@ -48,8 +65,13 @@ class GameController extends Controller
             return response()->json(['error' => 'Game state not found'], 404);
         }
 
+        // Calculate click power with skill bonus
+        $skillClickBonus = $user->getSkillClickPowerBonus();
+        $baseClickPower = $gameState->click_power;
+        $finalClickPower = $baseClickPower * (1 + $skillClickBonus);
+        
         // Add click power to money
-        $earnedMoney = $gameState->click_power;
+        $earnedMoney = $finalClickPower;
         $gameState->money += $earnedMoney;
         $gameState->xp += 1; // Earn 1 XP per click
         $gameState->last_active = now();
@@ -69,6 +91,8 @@ class GameController extends Controller
         return response()->json([
             'money' => $gameState->money,
             'click_power' => $gameState->click_power,
+            'effective_click_power' => $finalClickPower,
+            'skill_bonus' => $skillClickBonus,
             'xp' => $gameState->xp,
             'level' => $gameState->level,
             'earned' => $earnedMoney,
@@ -112,7 +136,7 @@ class GameController extends Controller
 
         return response()->json([
             'success' => true,
-            'game_state' => $gameState,
+            'data' => $gameState,
             'cost' => $cost,
             'upgrade_level' => $nextLevel,
         ]);
@@ -147,7 +171,7 @@ class GameController extends Controller
         return response()->json([
             'success' => true,
             'prestige_points' => $user->prestige_points,
-            'game_state' => $gameState,
+            'data' => $gameState,
         ]);
     }
 

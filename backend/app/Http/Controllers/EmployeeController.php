@@ -17,9 +17,25 @@ class EmployeeController extends Controller
             return response()->json(['error' => 'Company not found'], 404);
         }
 
-        $employees = $company->employees()->with('tasks')->get();
+        $employees = $company->employees()->get()->map(function ($employee) {
+            return [
+                'id' => $employee->id,
+                'name' => $employee->name,
+                'role' => $employee->role,
+                'productivity' => $employee->productivity,
+                'skill_level' => $employee->skill_level,
+                'salary' => $employee->salary,
+                'energy' => $employee->energy,
+                'status' => $employee->status,
+                'effective_productivity' => $employee->getEffectiveProductivity(),
+                'created_at' => $employee->created_at,
+            ];
+        });
 
-        return response()->json($employees);
+        return response()->json([
+            'success' => true,
+            'data' => $employees
+        ]);
     }
 
     public function hire(Request $request)
@@ -81,8 +97,10 @@ class EmployeeController extends Controller
         $company->save();
 
         return response()->json([
-            'employee' => $employee,
+            'success' => true,
+            'data' => $employee,
             'game_state' => $gameState,
+            'message' => "Hired {$employee->name} as {$employee->role}!"
         ], 201);
     }
 
@@ -107,7 +125,10 @@ class EmployeeController extends Controller
 
         $employee->delete();
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'message' => "{$employee->name} has been fired."
+        ]);
     }
 
     public function assignTask(Request $request, $id)

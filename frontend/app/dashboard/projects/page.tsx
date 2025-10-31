@@ -332,7 +332,7 @@ export default function ProjectsPage() {
                             handleStartProject(template);
                           }
                         }}
-                        disabled={isLocked}
+                        disabled={isLocked || false}
                         className={`w-full mt-4 py-2 rounded font-bold ${
                           isLocked
                             ? 'bg-gray-600 text-gray-400 cursor-not-allowed'

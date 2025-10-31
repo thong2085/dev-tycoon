@@ -12,6 +12,7 @@ export default function Dashboard() {
   const [activeEvents, setActiveEvents] = useState<MarketEvent[]>([]);
   const [offlineIncome, setOfflineIncome] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [skillBonuses, setSkillBonuses] = useState<any>(null);
 
   useEffect(() => {
     loadGameState();
@@ -33,9 +34,10 @@ export default function Dashboard() {
       }
 
       const data = await gameAPI.getGameState();
-      setGameState(data.game_state);
+      setGameState(data.data);
       setCompany(data.company);
       setActiveEvents(data.active_events || []);
+      setSkillBonuses(data.skill_bonuses || null);
       
       if (data.offline_income > 0) {
         setOfflineIncome(data.offline_income);
@@ -73,7 +75,7 @@ export default function Dashboard() {
       const data = await gameAPI.buyUpgrade(upgradeType);
       
       if (data.success) {
-        setGameState(data.game_state);
+        setGameState(data.data);
       }
     } catch (error: any) {
       alert(error.response?.data?.error || 'Failed to buy upgrade');
@@ -142,8 +144,44 @@ export default function Dashboard() {
             <p className="text-3xl font-bold text-purple-400">
               ${Number(gameState.auto_income).toFixed(2)}/s
             </p>
+            {skillBonuses && skillBonuses.passive_income > 0 && (
+              <p className="text-sm text-green-400 mt-1">
+                +${Number(skillBonuses.passive_income).toFixed(2)}/s from skills
+              </p>
+            )}
           </div>
         </div>
+
+        {/* Skill Bonuses Summary */}
+        {skillBonuses && skillBonuses.total_skill_levels > 0 && (
+          <div className="bg-gradient-to-r from-yellow-900/30 to-orange-900/30 border-2 border-yellow-600/50 p-6 rounded-lg mb-8">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              ⚡ Skill Bonuses Active
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <div className="text-gray-400 text-sm">Total Skill Levels</div>
+                <div className="text-2xl font-bold text-yellow-400">{skillBonuses.total_skill_levels}</div>
+              </div>
+              <div>
+                <div className="text-gray-400 text-sm">Click Power Bonus</div>
+                <div className="text-2xl font-bold text-green-400">
+                  +{(skillBonuses.click_power_bonus * 100).toFixed(0)}%
+                </div>
+              </div>
+              <div>
+                <div className="text-gray-400 text-sm">Maxed Skills</div>
+                <div className="text-2xl font-bold text-purple-400">{skillBonuses.maxed_skills}</div>
+              </div>
+              <div>
+                <div className="text-gray-400 text-sm">Effective Auto Income</div>
+                <div className="text-2xl font-bold text-blue-400">
+                  ${Number(skillBonuses.effective_auto_income).toFixed(2)}/s
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Click Button */}
         <div className="mb-8 text-center">

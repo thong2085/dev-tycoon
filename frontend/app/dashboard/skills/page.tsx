@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { skillsAPI, gameAPI } from '@/lib/api';
 import { SkillCategory, GameState } from '@/types/game';
+import Toast from '@/components/Toast';
+import ConfirmModal from '@/components/ConfirmModal';
 
 export default function SkillsPage() {
   const router = useRouter();
@@ -11,6 +13,12 @@ export default function SkillsPage() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ 
+    title: string; 
+    message: string; 
+    onConfirm: () => void;
+  } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -29,6 +37,10 @@ export default function SkillsPage() {
         gameAPI.getGameState()
       ]);
 
+      console.log('Game Data:', gameData.data);
+      console.log('Money:', gameData.data.money, 'Type:', typeof gameData.data.money);
+      console.log('Skills:', skillsData.data);
+
       setSkillCategories(skillsData.data);
       setGameState(gameData.data);
       setLoading(false);
@@ -39,41 +51,47 @@ export default function SkillsPage() {
   };
 
   const handleUnlockSkill = async (skillId: number, skillName: string, cost: number) => {
-    if (!gameState || gameState.money < cost) {
-      alert('Not enough money!');
+    if (!gameState || Number(gameState.money) < Number(cost)) {
+      setToast({ message: 'Not enough money!', type: 'error' });
       return;
     }
 
-    if (!confirm(`Unlock ${skillName} for $${cost.toFixed(2)}?`)) {
-      return;
-    }
-
-    try {
-      const response = await skillsAPI.unlockSkill(skillId);
-      alert(response.message);
-      loadData(); // Reload data
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to unlock skill');
-    }
+    setConfirmModal({
+      title: '🔓 Unlock Skill',
+      message: `Unlock ${skillName} for $${Number(cost).toFixed(2)}?`,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        try {
+          const response = await skillsAPI.unlockSkill(skillId);
+          setToast({ message: response.message, type: 'success' });
+          loadData(); // Reload data
+        } catch (error: any) {
+          setToast({ message: error.response?.data?.error || 'Failed to unlock skill', type: 'error' });
+        }
+      }
+    });
   };
 
   const handleUpgradeSkill = async (skillId: number, skillName: string, cost: number, currentLevel: number) => {
-    if (!gameState || gameState.money < cost) {
-      alert('Not enough money!');
+    if (!gameState || Number(gameState.money) < Number(cost)) {
+      setToast({ message: 'Not enough money!', type: 'error' });
       return;
     }
 
-    if (!confirm(`Upgrade ${skillName} to level ${currentLevel + 1} for $${cost.toFixed(2)}?`)) {
-      return;
-    }
-
-    try {
-      const response = await skillsAPI.upgradeSkill(skillId);
-      alert(response.message);
-      loadData(); // Reload data
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Failed to upgrade skill');
-    }
+    setConfirmModal({
+      title: '⬆️ Upgrade Skill',
+      message: `Upgrade ${skillName} to level ${currentLevel + 1} for $${Number(cost).toFixed(2)}?`,
+      onConfirm: async () => {
+        setConfirmModal(null);
+        try {
+          const response = await skillsAPI.upgradeSkill(skillId);
+          setToast({ message: response.message, type: 'success' });
+          loadData(); // Reload data
+        } catch (error: any) {
+          setToast({ message: error.response?.data?.error || 'Failed to upgrade skill', type: 'error' });
+        }
+      }
+    });
   };
 
   const getCategoryIcon = (category: string) => {
@@ -232,28 +250,35 @@ export default function SkillsPage() {
 
                   {/* Action Button */}
                   {!skill.is_unlocked ? (
-                    <button
-                      onClick={() => handleUnlockSkill(skill.id, skill.name, skill.unlock_cost)}
-                      className={`w-full py-2 rounded font-bold transition ${
-                        gameState && gameState.money >= skill.unlock_cost
-                          ? 'bg-purple-600 hover:bg-purple-700'
-                          : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                      }`}
-                      disabled={!gameState || gameState.money < skill.unlock_cost}
-                    >
-                      🔓 Unlock - ${skill.unlock_cost.toFixed(2)}
-                    </button>
+                    (() => {
+                      const hasMoney = gameState && Number(gameState.money) >= Number(skill.unlock_cost);
+                      console.log(`${skill.name}: Money=${gameState?.money}, Cost=${skill.unlock_cost}, HasMoney=${hasMoney}`);
+                      
+                      return (
+                        <button
+                          onClick={() => handleUnlockSkill(skill.id, skill.name, skill.unlock_cost)}
+                          className={`w-full py-2 rounded font-bold transition ${
+                            hasMoney
+                              ? 'bg-purple-600 hover:bg-purple-700'
+                              : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                          }`}
+                          disabled={!hasMoney}
+                        >
+                          🔓 Unlock - ${Number(skill.unlock_cost).toFixed(2)}
+                        </button>
+                      );
+                    })()
                   ) : skill.current_level < skill.max_level && skill.upgrade_cost ? (
                     <button
                       onClick={() => handleUpgradeSkill(skill.id, skill.name, skill.upgrade_cost!, skill.current_level)}
                       className={`w-full py-2 rounded font-bold transition ${
-                        gameState && gameState.money >= skill.upgrade_cost
+                        gameState && Number(gameState.money) >= Number(skill.upgrade_cost)
                           ? 'bg-blue-600 hover:bg-blue-700'
                           : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                       }`}
-                      disabled={!gameState || gameState.money < skill.upgrade_cost}
+                      disabled={!gameState || Number(gameState.money) < Number(skill.upgrade_cost)}
                     >
-                      ⬆️ Upgrade - ${skill.upgrade_cost.toFixed(2)}
+                      ⬆️ Upgrade - ${Number(skill.upgrade_cost).toFixed(2)}
                     </button>
                   ) : (
                     <div className="w-full py-2 text-center bg-gray-700 rounded font-bold text-yellow-400">
@@ -273,6 +298,28 @@ export default function SkillsPage() {
           </div>
         )}
       </div>
+
+      {/* Toast Notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Confirm Modal */}
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmText="Yes, proceed"
+          cancelText="Cancel"
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+          type="info"
+        />
+      )}
     </div>
   );
 }

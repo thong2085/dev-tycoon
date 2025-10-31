@@ -78,14 +78,24 @@ class ProjectController extends Controller
             return response()->json(['error' => 'Project not completed yet'], 400);
         }
 
+        // Calculate skill bonuses
+        $skillBonus = $user->getSkillBonusForProject($project->title);
+        $rewardMultiplier = 1 + ($skillBonus * 0.5); // 50% of skill bonus applies to reward
+        $xpMultiplier = 1 + ($skillBonus * 0.3); // 30% of skill bonus applies to XP
+        $reputationMultiplier = 1 + ($skillBonus * 0.2); // 20% of skill bonus applies to reputation
+        
+        // Calculate final values
+        $finalReward = $project->reward * $rewardMultiplier;
+        $baseXp = $project->difficulty * 10;
+        $finalXp = $baseXp * $xpMultiplier;
+        $baseReputation = $project->difficulty * 5;
+        $finalReputation = $baseReputation * $reputationMultiplier;
+        
         // Add reward to game state
         $gameState = $user->gameState;
-        $gameState->money += $project->reward;
-        $gameState->xp += $project->difficulty * 10;
-        
-        // Increase reputation and completed projects count
-        $reputationGain = $project->difficulty * 5; // 5 reputation per difficulty level
-        $gameState->reputation += $reputationGain;
+        $gameState->money += $finalReward;
+        $gameState->xp += $finalXp;
+        $gameState->reputation += $finalReputation;
         $gameState->completed_projects += 1;
         
         $gameState->save();
@@ -95,9 +105,12 @@ class ProjectController extends Controller
 
         return response()->json([
             'success' => true,
-            'reward' => $project->reward,
-            'reputation_gain' => $reputationGain,
-            'game_state' => $gameState,
+            'reward' => $finalReward,
+            'base_reward' => $project->reward,
+            'xp_gain' => $finalXp,
+            'reputation_gain' => $finalReputation,
+            'skill_bonus' => $skillBonus,
+            'data' => $gameState,
         ]);
     }
 }

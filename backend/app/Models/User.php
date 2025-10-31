@@ -78,5 +78,69 @@ class User extends Authenticatable
             ->withPivot(['level', 'experience', 'unlocked_at'])
             ->withTimestamps();
     }
+
+    /**
+     * Get total skill levels
+     */
+    public function getTotalSkillLevels(): int
+    {
+        return $this->skills()->sum('user_skills.level');
+    }
+
+    /**
+     * Get number of maxed skills
+     */
+    public function getMaxedSkillsCount(): int
+    {
+        return $this->skills()
+            ->wherePivot('level', '>=', 10)
+            ->count();
+    }
+
+    /**
+     * Calculate skill bonus for a project
+     */
+    public function getSkillBonusForProject(string $projectTitle): float
+    {
+        $userSkills = $this->skills()
+            ->withPivot(['level'])
+            ->get();
+        
+        $totalBonus = 0;
+        
+        foreach ($userSkills as $skill) {
+            $projectTypes = $skill->project_types ?? [];
+            
+            if (is_array($projectTypes)) {
+                foreach ($projectTypes as $type) {
+                    if (stripos($projectTitle, $type) !== false) {
+                        // Add efficiency bonus: skill level * efficiency_bonus
+                        $totalBonus += $skill->pivot->level * floatval($skill->efficiency_bonus);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        return $totalBonus;
+    }
+
+    /**
+     * Get passive income from maxed skills
+     */
+    public function getSkillPassiveIncome(): float
+    {
+        $maxedSkills = $this->getMaxedSkillsCount();
+        return $maxedSkills * 0.1; // $0.1/s per maxed skill
+    }
+
+    /**
+     * Get click power bonus from skills
+     */
+    public function getSkillClickPowerBonus(): float
+    {
+        $totalLevels = $this->getTotalSkillLevels();
+        return $totalLevels * 0.01; // +1% per skill level
+    }
 }
 
