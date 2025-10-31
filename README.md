@@ -393,9 +393,4 @@ ________________________________________
 •	spatie/laravel-activitylog (audit)
 •	spatie/laravel-rate-limited-queue (throttle queues)
 ________________________________________
-Nếu Thống muốn, tôi có thể tiếp tục:
-•	Viết migration đầy đủ + Eloquent models + sample controllers cho các endpoint quan trọng;
-•	Tạo repo skeleton Laravel + NextJS (boilerplate) có auth, click endpoint, cron job đơn giản;
-•	Hoặc phác họa UI mockup cho dashboard (NextJS + Tailwind).
-Chọn tiếp: 1) Migrations + Models + Controllers skeleton hoặc 2) Repo skeleton (Laravel + NextJS) hoặc 3) UI mockup.
 
