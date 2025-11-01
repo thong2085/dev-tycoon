@@ -22,6 +22,7 @@ export interface GameState {
   prestige_points: number;
   lifetime_earnings: number;
   total_clicks: number;
+  current_day: number;
   upgrades: Record<string, number>;
   last_active: string;
   created_at: string;

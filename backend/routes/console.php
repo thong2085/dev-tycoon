@@ -17,6 +17,9 @@ Artisan::command('inspire', function () {
 |
 */
 
+// Increment game day every minute (1 minute = 1 day in-game)
+Schedule::command('game:increment-day')->everyMinute();
+
 // Calculate idle income every minute
 Schedule::command('game:calculate-idle-income')->everyMinute();
 
@@ -49,4 +52,7 @@ Schedule::command('game:trigger-market-event')->everyFiveMinutes();
 
 // Check for bankrupt companies (every 5 minutes)
 Schedule::command('game:check-bankruptcy')->everyFiveMinutes();
+
+// Check overdue projects and expired quests (every minute)
+Schedule::command('game:check-deadlines')->everyMinute();
 

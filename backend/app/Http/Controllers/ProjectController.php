@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Project;
 use App\Models\ProjectTask;
 use App\Models\Leaderboard;
+use App\Models\NPCQuest;
 use Illuminate\Http\Request;
 
 class ProjectController extends Controller
@@ -113,7 +114,7 @@ class ProjectController extends Controller
             $project->update([
                 'status' => 'in_progress',
                 'started_at' => now(),
-                'deadline' => now()->addHours($project->difficulty * 2),
+                'deadline' => now()->addHours($project->difficulty * config('game_balance.projects.deadline_hours_per_difficulty', 3)),
             ]);
             
             // Create tasks for the project
@@ -143,9 +144,13 @@ class ProjectController extends Controller
             return response()->json(['error' => 'Company not found'], 404);
         }
 
-        // Calculate reward and required reputation based on difficulty
-        $reward = $request->difficulty * 100;
-        $requiredReputation = max(0, ($request->difficulty - 1) * 100);
+        // Calculate reward and required reputation based on difficulty (from game balance config)
+        $rewardMultiplier = config('game_balance.projects.reward_multiplier', 150);
+        $reputationPerDifficulty = config('game_balance.projects.reputation_per_difficulty', 100);
+        $baseRequiredReputation = config('game_balance.projects.base_required_reputation', 0);
+        
+        $reward = $request->difficulty * $rewardMultiplier;
+        $requiredReputation = max($baseRequiredReputation, ($request->difficulty - 1) * $reputationPerDifficulty);
 
         $project = Project::create([
             'company_id' => $company->id,
@@ -157,7 +162,7 @@ class ProjectController extends Controller
             'reward' => $reward,
             'progress' => 0,
             'started_at' => now(),
-            'deadline' => now()->addHours($request->difficulty * 2),
+            'deadline' => now()->addHours($request->difficulty * config('game_balance.projects.deadline_hours_per_difficulty', 3)),
             'status' => 'in_progress',
         ]);
 
@@ -217,6 +222,36 @@ class ProjectController extends Controller
 
         // Update leaderboard
         Leaderboard::updateEntry($user->id, $gameState, $company);
+
+        // Update NPC quest progress (if any active quest for complete_project)
+        // If quest has a specific required_project_id, only update that quest
+        // Otherwise, update any quest that accepts any project
+        $questsToUpdate = NPCQuest::where('user_id', $user->id)
+            ->where('quest_type', 'complete_project')
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                      ->orWhere('expires_at', '>', now());
+            });
+
+        // If this project is required by a specific quest, only update that quest
+        $specificQuest = NPCQuest::where('user_id', $user->id)
+            ->where('quest_type', 'complete_project')
+            ->where('required_project_id', $project->id)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                      ->orWhere('expires_at', '>', now());
+            })
+            ->first();
+
+        if ($specificQuest) {
+            // Only update the quest that requires this specific project
+            $specificQuest->increment('current_progress');
+        } else {
+            // Update quests that don't have a specific project requirement (legacy/any project quests)
+            $questsToUpdate->whereNull('required_project_id')->increment('current_progress');
+        }
 
         // Mark project as claimed by deleting or updating status
         $project->delete();

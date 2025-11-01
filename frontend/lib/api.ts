@@ -261,5 +261,61 @@ export const productBugAPI = {
   },
 };
 
+// Chat API
+export const chatAPI = {
+  getMessages: async () => {
+    const response = await api.get('/chat');
+    return response.data;
+  },
+  sendMessage: async (message: string) => {
+    const response = await api.post('/chat', { message });
+    return response.data;
+  },
+  clearChat: async () => {
+    const response = await api.delete('/chat');
+    return response.data;
+  },
+};
+
+// NPC API
+export const npcAPI = {
+  getNPCs: async () => {
+    const response = await api.get('/npcs');
+    return response.data;
+  },
+  getConversation: async (npcId: number) => {
+    const response = await api.get(`/npcs/${npcId}/conversation`);
+    return response.data;
+  },
+  sendMessage: async (npcId: number, message: string) => {
+    const response = await api.post(`/npcs/${npcId}/conversation`, { message });
+    return response.data;
+  },
+  clearConversation: async (npcId: number) => {
+    const response = await api.delete(`/npcs/${npcId}/conversation`);
+    return response.data;
+  },
+  requestQuest: async (npcId: number) => {
+    const response = await api.post(`/npcs/${npcId}/request-quest`);
+    return response.data;
+  },
+  getActiveQuests: async () => {
+    const response = await api.get('/npcs/quests/active');
+    return response.data;
+  },
+  fixQuest: async (questId: number) => {
+    const response = await api.post(`/npcs/quests/${questId}/fix`);
+    return response.data;
+  },
+  rejectQuest: async (questId: number) => {
+    const response = await api.delete(`/npcs/quests/${questId}`);
+    return response.data;
+  },
+  completeQuest: async (questId: number) => {
+    const response = await api.post(`/npcs/quests/${questId}/complete`);
+    return response.data;
+  },
+};
+
 export default api;
 

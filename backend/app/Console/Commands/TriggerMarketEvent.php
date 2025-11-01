@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\MarketEvent;
+use App\Services\GeminiService;
 
 class TriggerMarketEvent extends Command
 {
@@ -18,6 +19,52 @@ class TriggerMarketEvent extends Command
             return Command::SUCCESS;
         }
 
+        // 30% chance to use AI-generated event, 70% for static events
+        $useAI = random_int(1, 100) <= 30;
+        
+        if ($useAI) {
+            $gemini = new GeminiService();
+            $aiEvent = $gemini->generateMarketEvent();
+            
+            if ($aiEvent) {
+                $start = now();
+                $duration = $aiEvent['duration_minutes'] ?? 10;
+                $end = now()->addMinutes($duration);
+                
+                // Convert AI effect format to game effect format
+                $effect = [];
+                if (isset($aiEvent['effect'])) {
+                    $effectType = $aiEvent['effect']['type'] ?? 'revenue';
+                    $effectValue = $aiEvent['effect']['value'] ?? 0;
+                    
+                    // Map effect type to game multipliers
+                    if ($effectType === 'revenue') {
+                        $effect['global_revenue_multiplier'] = $effectValue;
+                    } elseif ($effectType === 'progress') {
+                        $effect['project_progress_multiplier'] = $effectValue;
+                    } elseif ($effectType === 'cost') {
+                        $effect['upkeep_multiplier'] = abs($effectValue); // Ensure positive for costs
+                    } elseif ($effectType === 'bonus') {
+                        $effect['global_revenue_multiplier'] = $effectValue;
+                    }
+                }
+                
+                $event = MarketEvent::create([
+                    'event_type' => $aiEvent['event_type'] ?? 'ai_event_' . uniqid(),
+                    'description' => $aiEvent['description'] ?? 'AI-generated market event',
+                    'effect' => $effect,
+                    'start_time' => $start,
+                    'end_time' => $end,
+                ]);
+
+                $this->info("Spawned AI market event: {$event->event_type} (until {$end})");
+                return Command::SUCCESS;
+            } else {
+                $this->warn('AI event generation failed, falling back to static events');
+            }
+        }
+
+        // Fallback: Static events
         $events = [
             [
                 'type' => 'market_boom',
@@ -57,7 +104,7 @@ class TriggerMarketEvent extends Command
             'end_time' => $end,
         ]);
 
-        $this->info("Spawned market event: {$event->event_type} (until {$end})");
+        $this->info("Spawned static market event: {$event->event_type} (until {$end})");
         return Command::SUCCESS;
     }
 }

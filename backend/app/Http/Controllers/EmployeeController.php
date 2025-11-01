@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\ProjectTask;
+use App\Models\NPCQuest;
 use Illuminate\Http\Request;
 
 class EmployeeController extends Controller
@@ -64,38 +65,40 @@ class EmployeeController extends Controller
             return response()->json(['error' => 'Company not found'], 404);
         }
 
-        // Calculate cost based on role
-        $costs = [
-            'junior' => 1000,
-            'mid' => 2500,
-            'senior' => 5000,
-            'lead' => 10000,
-            'architect' => 20000,
-        ];
+        // Calculate cost based on role (from game balance config)
+        $costs = config('game_balance.employees.hire_costs', [
+            'junior' => 1500,
+            'mid' => 3500,
+            'senior' => 7500,
+            'lead' => 15000,
+            'architect' => 30000,
+        ]);
 
-        $cost = $costs[$request->role] ?? 1000;
+        $cost = $costs[$request->role] ?? $costs['junior'];
 
         // Check COMPANY cash, not gameState money
         if ($company->cash < $cost) {
             return response()->json(['error' => 'Not enough money'], 400);
         }
 
-        // Skills based on role
-        $skills = [
+        // Skills based on role (from game balance config)
+        $skills = config('game_balance.employees.productivity', [
             'junior' => 50,
             'mid' => 75,
             'senior' => 100,
             'lead' => 125,
             'architect' => 150,
-        ];
+        ]);
+        
+        $salaryMultiplier = config('game_balance.employees.salary_multiplier', 0.12);
 
         $employee = Employee::create([
             'company_id' => $company->id,
             'name' => $request->name,
             'role' => $request->role,
-            'productivity' => $skills[$request->role],
+            'productivity' => $skills[$request->role] ?? $skills['junior'],
             'skill_level' => array_search($request->role, array_keys($skills)) + 1,
-            'salary' => $cost / 10, // Monthly salary
+            'salary' => round($cost * $salaryMultiplier, 2), // Monthly salary
             'energy' => 100,
             'status' => 'idle',
         ]);
@@ -107,6 +110,16 @@ class EmployeeController extends Controller
         // Increase company costs
         $company->monthly_costs += $employee->salary;
         $company->save();
+
+        // Update NPC quest progress (if any active quest for hire_employee)
+        NPCQuest::where('user_id', $user->id)
+            ->where('quest_type', 'hire_employee')
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                      ->orWhere('expires_at', '>', now());
+            })
+            ->increment('current_progress');
 
         return response()->json([
             'success' => true,

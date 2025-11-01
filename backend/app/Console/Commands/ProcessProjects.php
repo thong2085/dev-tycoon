@@ -127,10 +127,20 @@ class ProcessProjects extends Command
                 $this->info("Project #{$project->id} '{$project->title}' completed!");
             }
             
-            // Check if overdue
+            // Check if overdue (handled by CheckDeadlines command, but keep as fallback)
             if ($project->deadline && now()->isAfter($project->deadline) && $project->status !== 'completed') {
                 $project->status = 'failed';
-                $this->warn("Project #{$project->id} '{$project->title}' failed (deadline passed)");
+                
+                // Apply reputation penalty
+                $reputationPenalty = config('game_balance.projects.reputation_penalty_per_difficulty', 5);
+                $penalty = $project->difficulty * $reputationPenalty;
+                $gameState = \App\Models\GameState::where('user_id', $project->user_id)->first();
+                if ($gameState) {
+                    $gameState->reputation = max(0, $gameState->reputation - $penalty);
+                    $gameState->save();
+                }
+                
+                $this->warn("Project #{$project->id} '{$project->title}' failed (deadline passed) - Reputation penalty: -{$penalty}");
             }
             
             $project->save();

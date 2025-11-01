@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { gameAPI } from '@/lib/api';
 import { GameState, Company, MarketEvent } from '@/types/game';
 import CountUpNumber from '@/components/CountUpNumber';
+import { npcAPI } from '@/lib/api';
 import { SkeletonCard } from '@/components/Skeleton';
 import ParticleEffect from '@/components/ParticleEffect';
 import Toast from '@/components/Toast';
@@ -26,6 +27,8 @@ const PAGE_UNLOCK_LEVELS = {
   'company': 2, // Create company
   'products': 4, // Need employees first
   'ai-generator': 8, // Premium feature
+  'ai-mentor': 8, // Premium AI feature
+  'npcs': 10, // Premium AI feature
 };
 
 export default function Dashboard() {
@@ -45,6 +48,11 @@ export default function Dashboard() {
     employees: 0,
     products: 0,
   });
+  const [activeQuests, setActiveQuests] = useState<any[]>([]);
+  const [approachingDeadlines, setApproachingDeadlines] = useState<{
+    projects: any[];
+    quests: any[];
+  }>({ projects: [], quests: [] });
 
   // Get user ID for private channel
   const [userId, setUserId] = useState<number | null>(null);
@@ -63,7 +71,7 @@ export default function Dashboard() {
     const requiredLevel = PAGE_UNLOCK_LEVELS[pageKey as keyof typeof PAGE_UNLOCK_LEVELS];
     
     // Use company_level for company-dependent pages
-    if (['employees', 'company', 'products', 'research', 'ai-generator'].includes(pageKey)) {
+    if (['employees', 'company', 'products', 'research', 'ai-generator', 'ai-mentor', 'npcs'].includes(pageKey)) {
       return company.company_level >= requiredLevel;
     }
     
@@ -74,11 +82,13 @@ export default function Dashboard() {
   useEffect(() => {
     loadGameState();
     loadNotificationCounts();
+    loadActiveQuests();
     
     // Setup auto-refresh every 5 seconds
     const interval = setInterval(() => {
       loadGameState();
       loadNotificationCounts();
+      loadActiveQuests();
     }, 5000);
 
     return () => clearInterval(interval);
@@ -167,6 +177,7 @@ export default function Dashboard() {
       setCompany(data.company);
       setActiveEvents(data.active_events || []);
       setSkillBonuses(data.skill_bonuses || null);
+      setApproachingDeadlines(data.approaching_deadlines || { projects: [], quests: [] });
       
       if (data.offline_income > 0) {
         setOfflineIncome(data.offline_income);
@@ -195,6 +206,17 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Failed to load notifications:', error);
+    }
+  };
+
+  const loadActiveQuests = async () => {
+    try {
+      const response = await npcAPI.getActiveQuests();
+      if (response.success) {
+        setActiveQuests(response.quests || []);
+      }
+    } catch (error) {
+      console.error('Failed to load active quests:', error);
     }
   };
 
@@ -271,7 +293,20 @@ export default function Dashboard() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <header className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">🧑‍💻 Dev Tycoon</h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-4xl font-bold">🧑‍💻 Dev Tycoon</h1>
+            {gameState && (
+              <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-2 border-blue-500/50 rounded-xl px-6 py-3 shadow-lg">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">📅</span>
+                  <div>
+                    <p className="text-xs text-gray-400 uppercase tracking-wider">Game Day</p>
+                    <p className="text-2xl font-bold text-blue-300">Day {gameState.current_day || 1}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           <p className="text-gray-300">{company?.name || 'Your Startup'}</p>
         </header>
 
@@ -281,6 +316,113 @@ export default function Dashboard() {
             <p className="text-xl">
               💰 Welcome back! You earned ${Number(offlineIncome).toFixed(2)} while you were away!
             </p>
+          </div>
+        )}
+
+        {/* Deadline Warnings */}
+        {(approachingDeadlines.projects.length > 0 || approachingDeadlines.quests.length > 0) && (
+          <div className="bg-gradient-to-r from-orange-900/80 to-red-900/80 border-2 border-orange-500 p-6 rounded-xl mb-6">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              <span className="text-3xl">⏰</span>
+              <span>Approaching Deadlines</span>
+            </h2>
+            
+            {approachingDeadlines.projects.length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold mb-2 text-orange-200">📋 Projects</h3>
+                <div className="space-y-2">
+                  {approachingDeadlines.projects.map((project: any) => {
+                    const deadlineDate = new Date(project.deadline);
+                    const hoursLeft = Math.max(0, Math.floor((deadlineDate.getTime() - Date.now()) / (1000 * 60 * 60)));
+                    const isUrgent = hoursLeft < 12;
+                    
+                    return (
+                      <div key={project.id} className={`p-3 rounded-lg border-2 ${
+                        isUrgent 
+                          ? 'bg-red-900/30 border-red-500/50' 
+                          : 'bg-orange-900/30 border-orange-500/50'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="font-bold text-white">{project.title}</p>
+                            <p className="text-sm text-gray-300">
+                              Progress: {Math.round(project.progress || 0)}% | 
+                              Status: <span className="capitalize">{project.status}</span>
+                            </p>
+                          </div>
+                          <div className={`text-right px-4 py-2 rounded-lg ${
+                            isUrgent ? 'bg-red-600/50' : 'bg-orange-600/50'
+                          }`}>
+                            <p className="text-xs text-gray-300">Time Left</p>
+                            <p className={`text-lg font-bold ${isUrgent ? 'text-red-200' : 'text-orange-200'}`}>
+                              {hoursLeft > 24 
+                                ? `${Math.floor(hoursLeft / 24)}d ${hoursLeft % 24}h`
+                                : `${hoursLeft}h`
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            
+            {approachingDeadlines.quests.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2 text-orange-200">🎯 Quests</h3>
+                <div className="space-y-2">
+                  {approachingDeadlines.quests.map((quest: any) => {
+                    const expiryDate = new Date(quest.expires_at);
+                    const hoursLeft = Math.max(0, Math.floor((expiryDate.getTime() - Date.now()) / (1000 * 60 * 60)));
+                    const isUrgent = hoursLeft < 12;
+                    const progressPercent = (quest.current_progress / quest.target_progress) * 100;
+                    
+                    return (
+                      <div key={quest.id} className={`p-3 rounded-lg border-2 ${
+                        isUrgent 
+                          ? 'bg-red-900/30 border-red-500/50' 
+                          : 'bg-orange-900/30 border-orange-500/50'
+                      }`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="font-bold text-white">{quest.title}</p>
+                            <p className="text-sm text-gray-300">
+                              Progress: {quest.current_progress}/{quest.target_progress} ({Math.round(progressPercent)}%)
+                            </p>
+                            <div className="mt-1 bg-gray-700 rounded-full h-2 overflow-hidden">
+                              <div 
+                                className="h-2 bg-gradient-to-r from-orange-500 to-red-500 transition-all"
+                                style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          <div className={`text-right px-4 py-2 rounded-lg ml-4 ${
+                            isUrgent ? 'bg-red-600/50' : 'bg-orange-600/50'
+                          }`}>
+                            <p className="text-xs text-gray-300">Expires In</p>
+                            <p className={`text-lg font-bold ${isUrgent ? 'text-red-200' : 'text-orange-200'}`}>
+                              {hoursLeft > 24 
+                                ? `${Math.floor(hoursLeft / 24)}d ${hoursLeft % 24}h`
+                                : `${hoursLeft}h`
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            
+            <button
+              onClick={() => router.push('/dashboard/projects')}
+              className="mt-4 w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg font-bold transition-all"
+            >
+              📋 View All Projects →
+            </button>
           </div>
         )}
 
@@ -535,15 +677,212 @@ export default function Dashboard() {
             <h2 className="text-2xl font-bold mb-4">🎉 Active Events</h2>
             {activeEvents.map((event) => (
               <div key={event.id} className="mb-2">
-                <p className="font-bold">{event.event_type}</p>
                 <p className="text-sm">{event.description}</p>
               </div>
             ))}
           </div>
         )}
 
+        {/* Active NPC Quests */}
+        {activeQuests.length > 0 && (
+          <div className="bg-gradient-to-r from-amber-900/40 to-orange-900/40 border-2 border-amber-500/50 rounded-xl p-6 mb-8 shadow-lg">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              <span className="text-3xl">🎯</span>
+              <span>Active NPC Quests</span>
+              <span className="text-sm bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full font-bold">
+                {activeQuests.length}
+              </span>
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {activeQuests.map((quest: any) => {
+                const progressPercent = Math.min((quest.current_progress / quest.target_progress) * 100, 100);
+                const isCompleted = quest.current_progress >= quest.target_progress;
+                const questTypeIcons: { [key: string]: string } = {
+                  'complete_project': '📋',
+                  'hire_employee': '👥',
+                  'launch_product': '🚀',
+                  'reach_level': '📈',
+                  'earn_money': '💰',
+                  'gain_reputation': '⭐',
+                };
+                const questTypeIcon = questTypeIcons[quest.quest_type] || '🎯';
+                const npcName = quest.npc?.name || 'NPC';
+                
+                return (
+                  <div
+                    key={quest.id}
+                    className={`bg-gray-800/70 rounded-lg p-4 border-2 transition-all ${
+                      isCompleted
+                        ? 'border-green-500/50 bg-green-900/20 shadow-lg shadow-green-500/20'
+                        : 'border-gray-700 hover:border-amber-500/50'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2 mb-2">
+                      <span className="text-xl">{questTypeIcon}</span>
+                      <div className="flex-1">
+                        <h4 className={`font-bold ${isCompleted ? 'text-green-400' : 'text-amber-400'}`}>
+                          {quest.title}
+                        </h4>
+                        <p className="text-xs text-gray-400 mt-1">From: {npcName}</p>
+                      </div>
+                      {isCompleted && (
+                        <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded-full font-bold">
+                          READY!
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-300 mb-3 line-clamp-2">{quest.description}</p>
+                    
+                    {/* Show message if quest needs project but doesn't have one */}
+                    {!quest.required_project && (quest.quest_type === 'complete_project' || quest.quest_type === 'launch_product') && (
+                      <div className="mb-3 p-2 bg-red-900/30 rounded border border-red-700/50">
+                        <p className="text-xs text-red-300 font-semibold mb-1">⚠️ Project Missing</p>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const response = await npcAPI.fixQuest(quest.id);
+                              if (response.success) {
+                                setToast({ message: response.message || 'Quest fixed!', type: 'success' });
+                                loadActiveQuests();
+                              }
+                            } catch (error: any) {
+                              setToast({ message: error.response?.data?.message || 'Failed to fix quest', type: 'error' });
+                            }
+                          }}
+                          className="w-full text-xs px-2 py-1 bg-red-600/50 hover:bg-red-600 rounded text-red-200 font-semibold transition-all"
+                        >
+                          🔧 Create Project
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* Show specific project if quest requires one */}
+                    {quest.required_project && (quest.quest_type === 'complete_project' || quest.quest_type === 'launch_product') && (
+                      <div className="mb-3 p-2 bg-blue-900/30 rounded border border-blue-700/50">
+                        <p className="text-xs text-blue-300 font-semibold mb-1">📋 Required Project:</p>
+                        <p className="text-xs text-blue-200 font-bold">{quest.required_project.title}</p>
+                        <p className="text-xs text-blue-400 mt-1 line-clamp-1">{quest.required_project.description}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            quest.required_project.status === 'completed'
+                              ? 'bg-green-500/20 text-green-300'
+                              : quest.required_project.status === 'in_progress'
+                              ? 'bg-yellow-500/20 text-yellow-300'
+                              : 'bg-gray-500/20 text-gray-300'
+                          }`}>
+                            {quest.required_project.status === 'completed' ? '✅ Completed' : 
+                             quest.required_project.status === 'in_progress' ? '🔄 In Progress' : 
+                             '⏸️ Queued'}
+                          </span>
+                          {quest.required_project.progress !== undefined && (
+                            <span className="text-xs text-gray-400">
+                              {Math.round(quest.required_project.progress)}%
+                            </span>
+                          )}
+                        </div>
+                        {quest.quest_type === 'launch_product' && (
+                          <p className="text-xs text-yellow-300 mb-2 p-1.5 bg-yellow-900/20 rounded border border-yellow-700/50">
+                            💡 Complete project, then launch as product
+                          </p>
+                        )}
+                        <button
+                          onClick={() => router.push('/dashboard/projects')}
+                          className="mt-2 w-full text-xs px-2 py-1 bg-blue-600/50 hover:bg-blue-600 rounded text-blue-200 font-semibold transition-all"
+                        >
+                          View Project →
+                        </button>
+                      </div>
+                    )}
+                    
+                    <div className="mb-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-400">Progress</span>
+                        <span className={`text-xs font-bold ${isCompleted ? 'text-green-400' : 'text-amber-400'}`}>
+                          {quest.current_progress}/{quest.target_progress}
+                        </span>
+                      </div>
+                      <div className="relative bg-gray-700 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-2 rounded-full transition-all ${
+                            isCompleted
+                              ? 'bg-gradient-to-r from-green-500 to-emerald-500'
+                              : 'bg-gradient-to-r from-amber-500 to-orange-500'
+                          }`}
+                          style={{ width: `${progressPercent}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      {quest.rewards.money && (
+                        <span className="text-xs font-bold text-green-400 bg-green-500/10 px-2 py-0.5 rounded">
+                          💰 ${Number(quest.rewards.money).toLocaleString()}
+                        </span>
+                      )}
+                      {quest.rewards.reputation && (
+                        <span className="text-xs font-bold text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded">
+                          ⭐ +{quest.rewards.reputation}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            const response = await npcAPI.completeQuest(quest.id);
+                            if (response.success) {
+                              setToast({ message: response.message || 'Quest completed! 🎉', type: 'success' });
+                              loadActiveQuests();
+                              loadGameState();
+                            }
+                          } catch (error: any) {
+                            setToast({ message: error.response?.data?.message || 'Failed to complete quest', type: 'error' });
+                          }
+                        }}
+                        disabled={!isCompleted}
+                        className={`flex-1 px-3 py-2 rounded-lg font-bold text-sm transition-all ${
+                          isCompleted
+                            ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 hover:scale-105'
+                            : 'bg-gray-600 text-gray-400 cursor-not-allowed opacity-50'
+                        }`}
+                      >
+                        {isCompleted ? '✅ Complete' : '⏳ In Progress'}
+                      </button>
+                      
+                      <button
+                        onClick={async () => {
+                          if (!confirm('Are you sure you want to reject this quest? You will lose the quest and its rewards.')) {
+                            return;
+                          }
+                          try {
+                            const response = await npcAPI.rejectQuest(quest.id);
+                            if (response.success) {
+                              setToast({ message: response.message || 'Quest rejected.', type: 'info' });
+                              loadActiveQuests();
+                            }
+                          } catch (error: any) {
+                            setToast({ message: error.response?.data?.message || 'Failed to reject quest', type: 'error' });
+                          }
+                        }}
+                        disabled={isCompleted}
+                        className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${
+                          !isCompleted
+                            ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 hover:scale-105'
+                            : 'bg-gray-600 text-gray-400 cursor-not-allowed opacity-50'
+                        }`}
+                        title={isCompleted ? 'Cannot reject completed quest' : 'Reject this quest'}
+                      >
+                        ❌
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Quick Links */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-4 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-9 gap-4 mb-4">
           <button
             onClick={() => router.push('/dashboard/projects')}
             className="group relative bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700 hover:border-blue-500 p-6 rounded-xl text-center transform transition-all duration-200 hover:scale-105 hover:shadow-lg hover:shadow-blue-500/20"
@@ -725,6 +1064,60 @@ export default function Dashboard() {
             <div className="font-bold text-white">AI Generator</div>
             <div className={`text-xs mt-1 ${isPageUnlocked('ai-generator') ? 'text-blue-100 font-semibold' : 'text-gray-400'}`}>
               {isPageUnlocked('ai-generator') ? '✨ Powered by Gemini' : `Level ${PAGE_UNLOCK_LEVELS['ai-generator']}`}
+            </div>
+          </button>
+
+          <button
+            onClick={() => {
+              if (!isPageUnlocked('ai-mentor')) {
+                setToast({ message: `🔒 AI Mentor unlocked at Level ${PAGE_UNLOCK_LEVELS['ai-mentor']}`, type: 'info' });
+                return;
+              }
+              router.push('/dashboard/ai-mentor');
+            }}
+            className={`group relative p-6 rounded-xl text-center transform transition-all duration-200 ${
+              isPageUnlocked('ai-mentor') 
+                ? 'bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 hover:from-green-700 hover:via-blue-700 hover:to-purple-700 hover:scale-105 animate-pulse-glow shadow-lg hover:shadow-2xl hover:shadow-blue-500/50 border border-blue-500/50' 
+                : 'bg-gray-900 border border-gray-800 opacity-50 cursor-not-allowed'
+            }`}
+          >
+            {!isPageUnlocked('ai-mentor') && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/90 backdrop-blur-sm rounded-xl z-10">
+                <div className="text-5xl mb-2">🔒</div>
+                <div className="text-xs text-gray-400 font-bold">Level {PAGE_UNLOCK_LEVELS['ai-mentor']}</div>
+              </div>
+            )}
+            <div className="text-4xl mb-2 group-hover:scale-110 transition-transform duration-200">🧠</div>
+            <div className="font-bold text-white">AI Mentor</div>
+            <div className={`text-xs mt-1 ${isPageUnlocked('ai-mentor') ? 'text-green-100 font-semibold' : 'text-gray-400'}`}>
+              {isPageUnlocked('ai-mentor') ? '💬 Get Expert Advice' : `Level ${PAGE_UNLOCK_LEVELS['ai-mentor']}`}
+            </div>
+          </button>
+
+          <button
+            onClick={() => {
+              if (!isPageUnlocked('npcs')) {
+                setToast({ message: `🔒 NPCs unlocked at Level ${PAGE_UNLOCK_LEVELS['npcs']}`, type: 'info' });
+                return;
+              }
+              router.push('/dashboard/npcs');
+            }}
+            className={`group relative p-6 rounded-xl text-center transform transition-all duration-200 ${
+              isPageUnlocked('npcs') 
+                ? 'bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 hover:from-orange-700 hover:via-red-700 hover:to-pink-700 hover:scale-105 animate-pulse-glow shadow-lg hover:shadow-2xl hover:shadow-orange-500/50 border border-orange-500/50' 
+                : 'bg-gray-900 border border-gray-800 opacity-50 cursor-not-allowed'
+            }`}
+          >
+            {!isPageUnlocked('npcs') && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/90 backdrop-blur-sm rounded-xl z-10">
+                <div className="text-5xl mb-2">🔒</div>
+                <div className="text-xs text-gray-400 font-bold">Level {PAGE_UNLOCK_LEVELS['npcs']}</div>
+              </div>
+            )}
+            <div className="text-4xl mb-2 group-hover:scale-110 transition-transform duration-200">👥</div>
+            <div className="font-bold text-white">NPCs</div>
+            <div className={`text-xs mt-1 ${isPageUnlocked('npcs') ? 'text-orange-100 font-semibold' : 'text-gray-400'}`}>
+              {isPageUnlocked('npcs') ? '🤖 AI Conversations' : `Level ${PAGE_UNLOCK_LEVELS['npcs']}`}
             </div>
           </button>
         </div>

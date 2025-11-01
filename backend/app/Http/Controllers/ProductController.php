@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\Project;
+use App\Models\NPCQuest;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -61,11 +62,13 @@ class ProductController extends Controller
             ], 409);
         }
 
-        // Simple conversion formula
-        // Base monthly revenue = 10% of project reward (rounded)
-        $baseMonthlyRevenue = round($project->reward * 0.10, 2);
-        $upkeep = round($baseMonthlyRevenue * 0.20, 2);
-        $growthRate = 0.02; // 2% per month
+        // Product conversion formula (from game balance config)
+        $revenuePercentage = config('game_balance.products.revenue_percentage', 0.12);
+        $upkeepPercentage = config('game_balance.products.upkeep_percentage', 0.18);
+        $growthRate = config('game_balance.products.growth_rate', 0.025);
+        
+        $baseMonthlyRevenue = round($project->reward * $revenuePercentage, 2);
+        $upkeep = round($baseMonthlyRevenue * $upkeepPercentage, 2);
 
         $product = Product::create([
             'user_id' => $user->id,
@@ -79,6 +82,35 @@ class ProductController extends Controller
             'active' => true,
             'launched_at' => now(),
         ]);
+
+        // Update NPC quest progress (if any active quest for launch_product)
+        // If quest has a specific required_project_id, only update that quest
+        // Otherwise, update any quest that accepts any product launch
+        $specificQuest = NPCQuest::where('user_id', $user->id)
+            ->where('quest_type', 'launch_product')
+            ->where('required_project_id', $project->id)
+            ->where('status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                      ->orWhere('expires_at', '>', now());
+            })
+            ->first();
+
+        if ($specificQuest) {
+            // Only update the quest that requires this specific project
+            $specificQuest->increment('current_progress');
+        } else {
+            // Update quests that don't have a specific project requirement (legacy/any product quests)
+            NPCQuest::where('user_id', $user->id)
+                ->where('quest_type', 'launch_product')
+                ->whereNull('required_project_id')
+                ->where('status', 'active')
+                ->where(function ($query) {
+                    $query->whereNull('expires_at')
+                          ->orWhere('expires_at', '>', now());
+                })
+                ->increment('current_progress');
+        }
 
         return response()->json([
             'success' => true,

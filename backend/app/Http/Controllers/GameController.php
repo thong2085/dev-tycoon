@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\GameState;
 use App\Models\Leaderboard;
 use App\Models\MarketEvent;
+use App\Models\NPCQuest;
 use App\Events\PlayerPrestiged;
 use App\Events\LeaderboardUpdated;
 use Illuminate\Http\Request;
@@ -45,6 +46,23 @@ class GameController extends Controller
         // Update auto_income to include skill passive income
         $effectiveAutoIncome = $gameState->auto_income + $skillPassiveIncome;
 
+        // Get projects and quests approaching deadline (within 24 hours)
+        $approachingDeadlineProjects = $user->projects()
+            ->whereIn('status', ['queued', 'in_progress'])
+            ->whereNotNull('deadline')
+            ->where('deadline', '>', now())
+            ->where('deadline', '<=', now()->addHours(24))
+            ->select('id', 'title', 'deadline', 'status', 'progress')
+            ->get();
+
+        $approachingExpiryQuests = NPCQuest::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '>', now())
+            ->where('expires_at', '<=', now()->addHours(24))
+            ->select('id', 'title', 'expires_at', 'quest_type', 'current_progress', 'target_progress')
+            ->get();
+
         return response()->json([
             'success' => true,
             'data' => $gameState,
@@ -57,6 +75,10 @@ class GameController extends Controller
                 'total_skill_levels' => $totalSkillLevels,
                 'maxed_skills' => $maxedSkills,
                 'effective_auto_income' => $effectiveAutoIncome,
+            ],
+            'approaching_deadlines' => [
+                'projects' => $approachingDeadlineProjects,
+                'quests' => $approachingExpiryQuests,
             ],
         ]);
     }
@@ -210,10 +232,11 @@ class GameController extends Controller
         $gameState->save();
 
         // Keep skills, achievements, and prestige level
-        // Delete projects and employees
+        // Delete projects, employees, and products
         $user->projects()->delete();
         if ($company) {
             $company->employees()->delete();
+            $company->products()->delete(); // Delete all products
         }
         
         // Reset company cash

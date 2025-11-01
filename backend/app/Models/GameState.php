@@ -23,6 +23,7 @@ class GameState extends Model
         'prestige_points',
         'lifetime_earnings',
         'total_clicks',
+        'current_day',
     ];
 
     protected $casts = [
@@ -55,8 +56,9 @@ class GameState extends Model
         $secondsOffline = now()->diffInSeconds($this->last_active);
         $offlineIncome = $secondsOffline * $this->auto_income;
 
-        // Cap offline income to prevent abuse (max 8 hours)
-        $maxSeconds = 8 * 3600;
+        // Cap offline income to prevent abuse (from game balance config)
+        $maxHours = config('game_balance.offline.max_hours', 12);
+        $maxSeconds = $maxHours * 3600;
         if ($secondsOffline > $maxSeconds) {
             $offlineIncome = $maxSeconds * $this->auto_income;
         }

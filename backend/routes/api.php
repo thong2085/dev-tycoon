@@ -17,6 +17,8 @@ use App\Http\Controllers\MarketingCampaignController;
 use App\Http\Controllers\ResearchController;
 use App\Http\Controllers\AutomationController;
 use App\Http\Controllers\ProductBugController;
+use App\Http\Controllers\ChatController;
+use App\Http\Controllers\NPCController;
 
 /*
 |--------------------------------------------------------------------------
@@ -135,5 +137,23 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/generate/employee-names', [AIController::class, 'generateEmployeeNames']);
         Route::post('/generate/company-names', [AIController::class, 'generateCompanyNames']);
     });
+    
+    // AI Mentor Chat
+    Route::get('/chat', [ChatController::class, 'index']);
+    Route::post('/chat', [ChatController::class, 'sendMessage']);
+    Route::delete('/chat', [ChatController::class, 'clear']);
+    
+    // NPCs
+    Route::get('/npcs', [NPCController::class, 'index']);
+    Route::get('/npcs/{npcId}/conversation', [NPCController::class, 'getConversation']);
+    Route::post('/npcs/{npcId}/conversation', [NPCController::class, 'sendMessage']);
+    Route::delete('/npcs/{npcId}/conversation', [NPCController::class, 'clearConversation']);
+    
+    // NPC Quests
+    Route::post('/npcs/{npcId}/request-quest', [NPCController::class, 'requestQuest']);
+    Route::get('/npcs/quests/active', [NPCController::class, 'getActiveQuests']);
+    Route::post('/npcs/quests/{questId}/fix', [NPCController::class, 'fixQuest']);
+    Route::delete('/npcs/quests/{questId}', [NPCController::class, 'rejectQuest']);
+    Route::post('/npcs/quests/{questId}/complete', [NPCController::class, 'completeQuest']);
 });
 

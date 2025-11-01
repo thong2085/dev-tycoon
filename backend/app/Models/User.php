@@ -112,6 +112,11 @@ class User extends Authenticatable
         return $this->hasOne(AutomationSetting::class);
     }
 
+    public function chats(): HasMany
+    {
+        return $this->hasMany(Chat::class);
+    }
+
     /**
      * Get total skill levels
      */

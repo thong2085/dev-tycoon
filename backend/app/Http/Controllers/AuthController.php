@@ -38,6 +38,7 @@ class AuthController extends Controller
             'level' => 1,
             'upgrades' => [],
             'last_active' => now(),
+            'current_day' => 1, // Start at Day 1
         ]);
 
         // Create initial company with starting cash
