@@ -27,6 +27,9 @@ export interface GameState {
   last_active: string;
   created_at: string;
   updated_at: string;
+  // Optional fields for XP display (0-99 for current level)
+  xp_total?: number;
+  xp_for_next_level?: number;
 }
 
 export interface Company {
