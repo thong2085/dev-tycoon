@@ -1,0 +1,85 @@
+<?php
+
+namespace App\Console;
+
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+
+class Kernel extends ConsoleKernel
+{
+    /**
+     * Define the application's command schedule.
+     */
+    protected function schedule(Schedule $schedule): void
+    {
+        // Spawn starter projects for low-level players (runs every 30 minutes)
+        $schedule->command('game:spawn-starter-projects')->everyThirtyMinutes();
+
+        // Increment game day based on config (default: every 5 minutes = 1 game day)
+        $minutesPerDay = config('game_balance.time.minutes_per_game_day', 5);
+        if ($minutesPerDay === 1) {
+            $schedule->command('game:increment-day')->everyMinute();
+        } elseif ($minutesPerDay === 2) {
+            $schedule->command('game:increment-day')->everyTwoMinutes();
+        } elseif ($minutesPerDay === 3) {
+            $schedule->command('game:increment-day')->everyThreeMinutes();
+        } elseif ($minutesPerDay === 5) {
+            $schedule->command('game:increment-day')->everyFiveMinutes();
+        } elseif ($minutesPerDay === 10) {
+            $schedule->command('game:increment-day')->everyTenMinutes();
+        } elseif ($minutesPerDay === 15) {
+            $schedule->command('game:increment-day')->everyFifteenMinutes();
+        } elseif ($minutesPerDay === 30) {
+            $schedule->command('game:increment-day')->everyThirtyMinutes();
+        } else {
+            // For custom intervals, use cron expression
+            $schedule->command('game:increment-day')->cron("*/{$minutesPerDay} * * * *");
+        }
+
+        // Calculate idle income every minute
+        $schedule->command('game:calculate-idle-income')->everyMinute();
+
+        // Process project progress every minute
+        $schedule->command('game:process-projects')->everyMinute();
+
+        // Update employee states (energy & morale) every minute
+        $schedule->command('game:update-employees-state')->everyMinute();
+
+        // Recalculate company level every minute
+        $schedule->command('game:update-company-level')->everyMinute();
+
+        // Pay employee salaries every minute (1 minute = 1 day in-game)
+        $schedule->command('game:pay-salaries')->everyMinute();
+
+        // Accrue product revenue every minute
+        $schedule->command('game:process-products')->everyMinute();
+
+        // Process automation (auto rest, auto assign) every minute
+        $schedule->command('game:process-automation')->everyMinute();
+
+        // Spawn product bugs randomly (every 3 minutes)
+        $schedule->command('game:spawn-product-bugs')->everyThreeMinutes();
+
+        // Complete bug fixes that have reached their fix time (every minute)
+        $schedule->command('game:complete-bug-fixes')->everyMinute();
+
+        // Trigger random market events
+        $schedule->command('game:trigger-market-event')->everyFiveMinutes();
+
+        // Check for bankrupt companies (every 5 minutes)
+        $schedule->command('game:check-bankruptcy')->everyFiveMinutes();
+
+        // Check overdue projects and expired quests (every minute)
+        $schedule->command('game:check-deadlines')->everyMinute();
+    }
+
+    /**
+     * Register the commands for the application.
+     */
+    protected function commands(): void
+    {
+        $this->load(__DIR__.'/Commands');
+        // Schedule is now in schedule() method, not routes/console.php
+    }
+}
+

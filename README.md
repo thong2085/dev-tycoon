@@ -62,6 +62,32 @@ o	Quản lý stress và deadline.
 3.	Startup Phase:
 o	Tạo sản phẩm riêng, gọi vốn, marketing.
 o	Đối mặt với rủi ro, bug production và drama nội bộ 😅
+
+________________________________________
+🌍 Production Deployment
+Dev Tycoon đã sẵn sàng deploy lên production!
+
+📖 Xem hướng dẫn chi tiết:
+- **DEPLOYMENT.md**: Full deployment guide (Nginx, Supervisor, Cron, Security)
+- **DEPLOY_CHECKLIST.md**: Pre-deployment checklist
+
+Quick Deploy:
+```bash
+# Backend
+cd backend
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force --seed
+php artisan optimize
+
+# Frontend (Vercel)
+cd frontend
+vercel --prod
+```
+
+⚠️ **Lưu ý quan trọng**: 
+- Cần config scheduler để game mechanics hoạt động
+- Setup queue worker cho background jobs
+- Check security checklist trước khi deploy
 ________________________________________
 🤖 AI Tích hợp (Phase 3) ✅ COMPLETE
 ✨ Gemini API – AI cho thế giới Dev Tycoon

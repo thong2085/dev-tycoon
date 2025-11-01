@@ -22,7 +22,8 @@ return new class extends Migration
         });
 
         Schema::create('job_batches', function (Blueprint $table) {
-            $table->string('id')->primary();
+            // Use varchar(191) instead of 255 to avoid "key too long" error with utf8mb4
+            $table->string('id', 191)->primary();
             $table->string('name');
             $table->integer('total_jobs');
             $table->integer('pending_jobs');

@@ -13,7 +13,12 @@ return new class extends Migration
     {
         Schema::create('personal_access_tokens', function (Blueprint $table) {
             $table->id();
-            $table->morphs('tokenable');
+            // Use shorter varchar for tokenable_type to avoid "key too long" error with utf8mb4
+            // Index on (tokenable_type, tokenable_id) with utf8mb4 can exceed 1000 bytes
+            // tokenable_type typically needs ~50 chars, so use 100 to be safe
+            $table->string('tokenable_type', 100);
+            $table->unsignedBigInteger('tokenable_id');
+            $table->index(['tokenable_type', 'tokenable_id'], 'tokenable_index');
             $table->text('name');
             $table->string('token', 64)->unique();
             $table->text('abilities')->nullable();

@@ -22,13 +22,17 @@ return new class extends Migration
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
-            $table->string('email')->primary();
+            // Use varchar(191) instead of 255 to avoid "key too long" error with utf8mb4
+            // Max key length is 1000 bytes, utf8mb4 uses 4 bytes per char, so 191 * 4 = 764 bytes (safe)
+            $table->string('email', 191)->primary();
             $table->string('token');
             $table->timestamp('created_at')->nullable();
         });
 
         Schema::create('sessions', function (Blueprint $table) {
-            $table->string('id')->primary();
+            // Use varchar(191) instead of 255 to avoid "key too long" error with utf8mb4
+            // Session IDs are typically 40-128 chars, so 191 is more than enough
+            $table->string('id', 191)->primary();
             $table->foreignId('user_id')->nullable()->index();
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();

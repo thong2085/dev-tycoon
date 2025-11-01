@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\ProjectController;
@@ -34,6 +35,40 @@ use App\Http\Controllers\NPCController;
 // Public routes
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
+
+// Schedule trigger for external cron (shared hosting)
+Route::get('/schedule-trigger', function(\Illuminate\Http\Request $request) {
+    try {
+        // Security check (optional - can be disabled if no secret set)
+        $secret = env('SCHEDULE_SECRET');
+        if (!empty($secret) && $request->header('X-Schedule-Secret') !== $secret) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+        
+        // Run Laravel scheduler
+        \Illuminate\Support\Facades\Artisan::call('schedule:run');
+        $output = \Illuminate\Support\Facades\Artisan::output();
+        
+        return response()->json([
+            'success' => true, 
+            'message' => 'Schedule executed',
+            'output' => $output
+        ]);
+    } catch (\Exception $e) {
+        // Log error but don't expose sensitive info
+        \Log::error('Schedule trigger error: ' . $e->getMessage());
+        
+        return response()->json([
+            'error' => 'Schedule execution failed',
+            'message' => $e->getMessage()
+        ], 500);
+    }
+});
+
+// Test route to verify API is working
+Route::get('/test', function() {
+    return response()->json(['status' => 'ok', 'message' => 'API is working']);
+});
 
 // Protected routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
