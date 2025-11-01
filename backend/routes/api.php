@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\ProjectController;
@@ -109,7 +110,7 @@ Route::get('/schedule-trigger', function(\Illuminate\Http\Request $request) {
                     $executed[] = $command;
                 } catch (\Exception $e) {
                     $errors[$command] = $e->getMessage();
-                    \Log::warning("Scheduled command '$command' failed: " . $e->getMessage());
+                    Log::warning("Scheduled command '$command' failed: " . $e->getMessage());
                 }
             }
             
@@ -133,7 +134,7 @@ Route::get('/schedule-trigger', function(\Illuminate\Http\Request $request) {
         ]);
     } catch (\Exception $e) {
         // Log error but don't expose sensitive info
-        \Log::error('Schedule trigger error: ' . $e->getMessage());
+        Log::error('Schedule trigger error: ' . $e->getMessage());
         
         return response()->json([
             'error' => 'Schedule execution failed',
@@ -153,11 +154,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/user', [AuthController::class, 'user']);
     
-    // Game State
-    Route::get('/game', [GameController::class, 'getGameState']);
-    Route::post('/game/click', [GameController::class, 'click']);
-    Route::post('/game/upgrade', [GameController::class, 'buyUpgrade']);
-    Route::post('/game/prestige', [GameController::class, 'prestige']);
+    // Game State (higher rate limit for frequent polling)
+    Route::middleware('throttle:api-general')->group(function () {
+        Route::get('/game', [GameController::class, 'getGameState']);
+    });
+    
+    // Game Actions (highest rate limit for click/upgrade)
+    Route::middleware('throttle:game')->group(function () {
+        Route::post('/game/click', [GameController::class, 'click']);
+        Route::post('/game/upgrade', [GameController::class, 'buyUpgrade']);
+        Route::post('/game/prestige', [GameController::class, 'prestige']);
+    });
     
     // Company
     Route::get('/company', [CompanyController::class, 'show']);
@@ -195,9 +202,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/achievements/check', [AchievementController::class, 'checkAchievements']);
     Route::get('/achievements/unnotified', [AchievementController::class, 'getUnnotified']);
     
-    // Notifications
-    Route::get('/notifications/counts', [NotificationController::class, 'getCounts']);
-    Route::get('/notifications', [NotificationController::class, 'getNotifications']);
+    // Notifications (higher rate limit for frequent polling)
+    Route::middleware('throttle:api-general')->group(function () {
+        Route::get('/notifications/counts', [NotificationController::class, 'getCounts']);
+        Route::get('/notifications', [NotificationController::class, 'getNotifications']);
+    });
     
     // Shop
     Route::get('/shop', [ShopController::class, 'index']);
@@ -261,9 +270,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/npcs/{npcId}/conversation', [NPCController::class, 'sendMessage']);
     Route::delete('/npcs/{npcId}/conversation', [NPCController::class, 'clearConversation']);
     
-    // NPC Quests
+    // NPC Quests (higher rate limit for frequent polling)
+    Route::middleware('throttle:api-general')->group(function () {
+        Route::get('/npcs/quests/active', [NPCController::class, 'getActiveQuests']);
+    });
+    
     Route::post('/npcs/{npcId}/request-quest', [NPCController::class, 'requestQuest']);
-    Route::get('/npcs/quests/active', [NPCController::class, 'getActiveQuests']);
     Route::post('/npcs/quests/{questId}/fix', [NPCController::class, 'fixQuest']);
     Route::delete('/npcs/quests/{questId}', [NPCController::class, 'rejectQuest']);
     Route::post('/npcs/quests/{questId}/complete', [NPCController::class, 'completeQuest']);
