@@ -263,7 +263,7 @@ export default function CompanyPage() {
         </div>
 
         {/* Bankruptcy Warning */}
-        {company && company.cash < -5000 && (
+        {company && Number(company.cash) < -5000 && (
           <div className="bg-gradient-to-r from-red-900/80 to-orange-900/80 border-2 border-red-500 p-6 rounded-xl mb-6 animate-pulse">
             <div className="flex items-center gap-3 mb-2">
               <div className="text-4xl">🚨</div>
@@ -274,7 +274,7 @@ export default function CompanyPage() {
                 </p>
               </div>
             </div>
-            {company.cash < -10000 && (
+            {Number(company.cash) < -10000 && (
               <div className="mt-3 p-3 bg-red-950/50 rounded-lg border border-red-500/50">
                 <p className="text-red-200 text-sm">
                   💥 <strong>CRITICAL:</strong> Cash below <span className="font-bold text-white">-$10,000</span>. All employees will be fired!
@@ -287,12 +287,12 @@ export default function CompanyPage() {
         {/* Stats Grid */}
         <div className="grid md:grid-cols-3 gap-6 mb-6">
           {/* Cash */}
-          <div className={`rounded-xl p-6 border shadow-lg hover:shadow-2xl transition-shadow animate-fade-in ${company.cash < -5000 ? 'bg-red-900/30 border-red-600' : company.cash < 0 ? 'bg-orange-900/30 border-orange-600' : 'bg-gray-800 border-gray-700'}`}>
+          <div className={`rounded-xl p-6 border shadow-lg hover:shadow-2xl transition-shadow animate-fade-in ${Number(company.cash) < -5000 ? 'bg-red-900/30 border-red-600' : Number(company.cash) < 0 ? 'bg-orange-900/30 border-orange-600' : 'bg-gray-800 border-gray-700'}`}> 
             <div className="flex items-center justify-between mb-4">
-              <span className="text-5xl">{company.cash < -5000 ? '💀' : company.cash < 0 ? '⚠️' : '💰'}</span>
-              <span className={`text-sm font-medium ${company.cash < -5000 ? 'text-red-400' : company.cash < 0 ? 'text-orange-400' : 'text-green-400'}`}>Company Cash</span>
+              <span className="text-5xl">{Number(company.cash) < -5000 ? '💀' : Number(company.cash) < 0 ? '⚠️' : '💰'}</span>
+              <span className={`text-sm font-medium ${Number(company.cash) < -5000 ? 'text-red-400' : Number(company.cash) < 0 ? 'text-orange-400' : 'text-green-400'}`}>Company Cash</span>
             </div>
-            <div className={`text-3xl font-bold mb-1 ${company.cash < -5000 ? 'text-red-300' : company.cash < 0 ? 'text-orange-300' : 'text-white'}`}>
+            <div className={`text-3xl font-bold mb-1 ${Number(company.cash) < -5000 ? 'text-red-300' : Number(company.cash) < 0 ? 'text-orange-300' : 'text-white'}`}>
               $<CountUpNumber value={Number(company.cash)} />
             </div>
             <p className="text-gray-400 text-sm">Available funds</p>

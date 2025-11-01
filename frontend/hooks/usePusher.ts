@@ -22,7 +22,6 @@ export function usePusher({ channel, events }: PusherHookOptions) {
     // Initialize Pusher
     const newPusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY || '', {
       cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER || 'ap1',
-      encrypted: true,
     });
 
     setPusher(newPusher);

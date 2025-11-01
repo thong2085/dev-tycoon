@@ -21,7 +21,6 @@ export default function PusherDebugConsole() {
     // Initialize Pusher with debug mode
     const newPusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY || '', {
       cluster: process.env.NEXT_PUBLIC_PUSHER_APP_CLUSTER || 'ap1',
-      encrypted: true,
     });
 
     setPusher(newPusher);
