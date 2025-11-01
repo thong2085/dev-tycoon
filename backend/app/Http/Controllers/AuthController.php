@@ -7,61 +7,94 @@ use App\Models\GameState;
 use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
     public function register(Request $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
+        try {
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users',
+                'password' => 'required|string|min:8|confirmed',
+            ]);
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'level' => 1,
-            'prestige_points' => 0,
-            'last_active' => now(),
-        ]);
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'level' => 1,
+                'prestige_points' => 0,
+                'last_active' => now(),
+            ]);
 
-        // Create initial game state (no money field - use company cash)
-        $gameState = GameState::create([
-            'user_id' => $user->id,
-            'money' => 0, // Deprecated, use company cash instead
-            'click_power' => 1,
-            'auto_income' => 0,
-            'xp' => 0,
-            'level' => 1,
-            'upgrades' => [],
-            'last_active' => now(),
-            'current_day' => 1, // Start at Day 1
-        ]);
+            // Create initial game state (no money field - use company cash)
+            // upgrades is cast as 'array' in model, Laravel will auto-encode
+            $gameStateData = [
+                'user_id' => $user->id,
+                'click_power' => 1,
+                'auto_income' => 0,
+                'xp' => 0,
+                'level' => 1,
+                'upgrades' => [], // Model has 'array' cast, Laravel handles JSON
+                'last_active' => now(),
+                'current_day' => 1, // Start at Day 1
+            ];
+            
+            // Check if money column exists using raw query (avoid Schema::hasColumn issue)
+            try {
+                $hasMoneyColumn = DB::select("SHOW COLUMNS FROM `game_states` LIKE 'money'");
+                if (!empty($hasMoneyColumn)) {
+                    $gameStateData['money'] = 0; // Deprecated, use company cash instead
+                }
+            } catch (\Exception $e) {
+                // Ignore check error, just don't add money field
+            }
+            
+            $gameState = GameState::create($gameStateData);
 
-        // Create initial company with starting cash
-        $company = Company::create([
-            'user_id' => $user->id,
-            'name' => $user->name . "'s Startup",
-            'company_level' => 1,
-            'cash' => 100, // Starting cash
-            'monthly_revenue' => 0,
-            'monthly_costs' => 0,
-        ]);
+            // Create initial company with starting cash
+            $company = Company::create([
+                'user_id' => $user->id,
+                'name' => $user->name . "'s Startup",
+                'company_level' => 1,
+                'cash' => 100, // Starting cash
+                'monthly_revenue' => 0,
+                'monthly_costs' => 0,
+            ]);
 
-        // Link company to game state
-        $gameState->update(['company_id' => $company->id]);
+            // Link company to game state
+            $gameState->update(['company_id' => $company->id]);
 
-        $token = $user->createToken('game-token')->plainTextToken;
+            $token = $user->createToken('game-token')->plainTextToken;
 
-        return response()->json([
-            'user' => $user,
-            'token' => $token,
-            'game_state' => $gameState,
-            'company' => $company,
-        ], 201);
+            return response()->json([
+                'user' => $user,
+                'token' => $token,
+                'game_state' => $gameState,
+                'company' => $company,
+            ], 201)->header('Access-Control-Allow-Origin', '*');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422)->header('Access-Control-Allow-Origin', '*');
+        } catch (\Exception $e) {
+            Log::error('Registration error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'request' => $request->except(['password', 'password_confirmation'])
+            ]);
+            
+            return response()->json([
+                'message' => 'Registration failed',
+                'error' => config('app.debug') ? $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() : 'Internal server error'
+            ], 500)->header('Access-Control-Allow-Origin', '*');
+        }
     }
 
     public function login(Request $request)
@@ -81,7 +114,9 @@ class AuthController extends Controller
 
         // Update last active
         $user->update(['last_active' => now()]);
-        $user->gameState->update(['last_active' => now()]);
+        if ($user->gameState) {
+            $user->gameState->update(['last_active' => now()]);
+        }
 
         $token = $user->createToken('game-token')->plainTextToken;
 
