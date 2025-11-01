@@ -32,6 +32,14 @@ class GameState extends Model
         'auto_income' => 'decimal:2',
         'upgrades' => 'array',
         'last_active' => 'datetime',
+        'level' => 'integer',
+        'xp' => 'integer',
+        'reputation' => 'integer',
+        'completed_projects' => 'integer',
+        'prestige_level' => 'integer',
+        'prestige_points' => 'integer',
+        'total_clicks' => 'integer',
+        'current_day' => 'integer',
     ];
 
     public function user(): BelongsTo
