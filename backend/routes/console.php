@@ -17,8 +17,26 @@ Artisan::command('inspire', function () {
 |
 */
 
-// Increment game day every minute (1 minute = 1 day in-game)
-Schedule::command('game:increment-day')->everyMinute();
+// Increment game day based on config (default: every 5 minutes = 1 game day)
+$minutesPerDay = config('game_balance.time.minutes_per_game_day', 5);
+if ($minutesPerDay === 1) {
+    Schedule::command('game:increment-day')->everyMinute();
+} elseif ($minutesPerDay === 2) {
+    Schedule::command('game:increment-day')->everyTwoMinutes();
+} elseif ($minutesPerDay === 3) {
+    Schedule::command('game:increment-day')->everyThreeMinutes();
+} elseif ($minutesPerDay === 5) {
+    Schedule::command('game:increment-day')->everyFiveMinutes();
+} elseif ($minutesPerDay === 10) {
+    Schedule::command('game:increment-day')->everyTenMinutes();
+} elseif ($minutesPerDay === 15) {
+    Schedule::command('game:increment-day')->everyFifteenMinutes();
+} elseif ($minutesPerDay === 30) {
+    Schedule::command('game:increment-day')->everyThirtyMinutes();
+} else {
+    // For custom intervals, use cron expression
+    Schedule::command('game:increment-day')->cron("*/{$minutesPerDay} * * * *");
+}
 
 // Calculate idle income every minute
 Schedule::command('game:calculate-idle-income')->everyMinute();

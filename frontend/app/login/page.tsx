@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authAPI } from '@/lib/api';
+import GameGuide from '@/components/GameGuide';
 
 export default function Login() {
   const router = useRouter();
@@ -28,12 +29,13 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md">
+    <div className="min-h-screen flex bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+      {/* Login Form - Left Side */}
+      <div className="flex-1 flex items-baseline justify-center p-8">
+        <div className="sticky top-8 bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md">
         <h1 className="text-3xl font-bold text-white mb-6 text-center">
           🧑‍💻 Dev Tycoon
         </h1>
-        <h2 className="text-xl text-gray-300 mb-6 text-center">Login</h2>
 
         {error && (
           <div className="bg-red-600 text-white p-3 rounded mb-4">
@@ -84,7 +86,11 @@ export default function Login() {
             </button>
           </p>
         </div>
+        </div>
       </div>
+
+      {/* Game Guide - Right Side */}
+      <GameGuide />
     </div>
   );
 }

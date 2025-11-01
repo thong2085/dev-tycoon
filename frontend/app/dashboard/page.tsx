@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { gameAPI } from '@/lib/api';
+import { gameAPI, npcAPI, authAPI } from '@/lib/api';
 import { GameState, Company, MarketEvent } from '@/types/game';
 import CountUpNumber from '@/components/CountUpNumber';
-import { npcAPI } from '@/lib/api';
 import { SkeletonCard } from '@/components/Skeleton';
 import ParticleEffect from '@/components/ParticleEffect';
 import Toast from '@/components/Toast';
@@ -295,17 +294,40 @@ export default function Dashboard() {
         <header className="mb-8">
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-4xl font-bold">🧑‍💻 Dev Tycoon</h1>
-            {gameState && (
-              <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-2 border-blue-500/50 rounded-xl px-6 py-3 shadow-lg">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">📅</span>
-                  <div>
-                    <p className="text-xs text-gray-400 uppercase tracking-wider">Game Day</p>
-                    <p className="text-2xl font-bold text-blue-300">Day {gameState.current_day || 1}</p>
+            <div className="flex items-center gap-4">
+              {gameState && (
+                <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-2 border-blue-500/50 rounded-xl px-6 py-3 shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">📅</span>
+                    <div>
+                      <p className="text-xs text-gray-400 uppercase tracking-wider">Game Day</p>
+                      <p className="text-2xl font-bold text-blue-300">Day {gameState.current_day || 1}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+              <button
+                onClick={async () => {
+                  if (confirm('Are you sure you want to log out?')) {
+                    try {
+                      await authAPI.logout();
+                      localStorage.removeItem('token');
+                      router.push('/login');
+                    } catch (error) {
+                      console.error('Logout failed:', error);
+                      // Still logout locally even if API fails
+                      localStorage.removeItem('token');
+                      router.push('/login');
+                    }
+                  }
+                }}
+                className="px-6 py-3 bg-gradient-to-r from-red-600/20 to-red-700/20 border-2 border-red-500/50 rounded-xl hover:from-red-600/30 hover:to-red-700/30 hover:border-red-400 transition-all duration-200 shadow-lg hover:shadow-red-500/20 flex items-center gap-2 group"
+                title="Log out"
+              >
+                <span className="text-xl group-hover:scale-110 transition-transform">🚪</span>
+                <span className="font-bold text-red-300 group-hover:text-red-200">Out Game</span>
+              </button>
+            </div>
           </div>
           <p className="text-gray-300">{company?.name || 'Your Startup'}</p>
         </header>
