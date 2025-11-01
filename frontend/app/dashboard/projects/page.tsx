@@ -80,10 +80,10 @@ export default function ProjectsPage() {
     loadProjects();
     loadProducts();
     
-    // Auto-refresh every 3 seconds for faster updates
+    // Auto-refresh every 5 seconds for updates (reduced frequency to avoid rate limiting)
     const interval = setInterval(() => {
       loadProjects();
-    }, 3000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);

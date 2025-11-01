@@ -26,17 +26,17 @@ class RouteServiceProvider extends ServiceProvider
     {
         // Standard API rate limit (for auth, etc.)
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+            return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());
         });
 
         // Game actions rate limit (higher limit for click actions, upgrades, etc.)
         RateLimiter::for('game', function (Request $request) {
-            return Limit::perMinute(300)->by($request->user()?->id ?: $request->ip());
+            return Limit::perMinute(600)->by($request->user()?->id ?: $request->ip());
         });
 
         // General API requests (notifications, data fetching, etc.)
         RateLimiter::for('api-general', function (Request $request) {
-            return Limit::perMinute(120)->by($request->user()?->id ?: $request->ip());
+            return Limit::perMinute(300)->by($request->user()?->id ?: $request->ip());
         });
 
         $this->routes(function () {

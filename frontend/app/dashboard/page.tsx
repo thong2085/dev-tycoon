@@ -182,7 +182,7 @@ export default function Dashboard() {
       if (data.xp_current !== undefined) {
         setGameState({
           ...data.data,
-          level: data.data?.level ?? 1, // Ensure level is preserved from backend
+          level: Math.max(1, data.data?.level ?? 1), // Ensure level is at least 1
           xp: data.xp_current, // Use xp_current for display (0-99), keep original xp as xp_total
           xp_total: data.data?.xp ?? 0, // Store total XP separately if needed
           xp_for_next_level: data.xp_for_next_level || 100,
@@ -190,7 +190,7 @@ export default function Dashboard() {
       } else {
         setGameState({
           ...data.data,
-          level: data.data?.level ?? 1, // Ensure level is always set
+          level: Math.max(1, data.data?.level ?? 1), // Ensure level is at least 1
         });
       }
       setCompany(data.company);
@@ -254,7 +254,7 @@ export default function Dashboard() {
           click_power: data.click_power,
           xp: data.xp_current !== undefined ? data.xp_current : data.xp, // Use xp_current for display (0-99)
           xp_total: data.xp, // Store total XP if xp_current is provided
-          level: data.level ?? gameState.level, // Preserve level from API or keep current
+          level: Math.max(1, data.level ?? gameState.level ?? 1), // Ensure level is at least 1
         });
       }
     } catch (error) {

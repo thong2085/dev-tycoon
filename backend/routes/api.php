@@ -167,20 +167,26 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     
     // Company
-    Route::get('/company', [CompanyController::class, 'show']);
+    Route::middleware('throttle:api-general')->group(function () {
+        Route::get('/company', [CompanyController::class, 'show']);
+    });
     Route::post('/company', [CompanyController::class, 'create']);
     Route::put('/company', [CompanyController::class, 'update']);
     
-    // Projects
-    Route::get('/projects', [ProjectController::class, 'index']);
-    Route::get('/projects/available', [ProjectController::class, 'availableJobs']);
+    // Projects (higher rate limit for frequent polling)
+    Route::middleware('throttle:api-general')->group(function () {
+        Route::get('/projects', [ProjectController::class, 'index']);
+        Route::get('/projects/available', [ProjectController::class, 'availableJobs']);
+        Route::get('/projects/{id}', [ProjectController::class, 'show']);
+    });
     Route::post('/projects/{id}/accept', [ProjectController::class, 'acceptJob']);
     Route::post('/projects/start', [ProjectController::class, 'start']);
     Route::post('/projects/{id}/claim', [ProjectController::class, 'claim']);
-    Route::get('/projects/{id}', [ProjectController::class, 'show']);
     
-    // Employees
-    Route::get('/employees', [EmployeeController::class, 'index']);
+    // Employees (higher rate limit for frequent polling)
+    Route::middleware('throttle:api-general')->group(function () {
+        Route::get('/employees', [EmployeeController::class, 'index']);
+    });
     Route::post('/employees/hire', [EmployeeController::class, 'hire']);
     Route::post('/employees/{id}/fire', [EmployeeController::class, 'fire']);
     Route::post('/employees/{id}/assign', [EmployeeController::class, 'assignTask']);
@@ -213,9 +219,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/shop/purchase', [ShopController::class, 'purchase']);
     Route::get('/shop/purchases', [ShopController::class, 'getActivePurchases']);
 
-    // Products
-    Route::get('/products', [ProductController::class, 'index']);
-    Route::get('/products/{id}', [ProductController::class, 'show']);
+    // Products (higher rate limit for frequent polling)
+    Route::middleware('throttle:api-general')->group(function () {
+        Route::get('/products', [ProductController::class, 'index']);
+        Route::get('/products/{id}', [ProductController::class, 'show']);
+    });
     Route::post('/products/launch-from-project/{projectId}', [ProductController::class, 'launchFromProject']);
     Route::post('/products/{id}/pause', [ProductController::class, 'pause']);
     Route::post('/products/{id}/resume', [ProductController::class, 'resume']);
