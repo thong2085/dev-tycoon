@@ -221,5 +221,45 @@ export const shopAPI = {
   },
 };
 
+// Research API
+export const researchAPI = {
+  getResearches: async () => {
+    const response = await api.get('/research');
+    return response.data;
+  },
+  unlockResearch: async (id: number) => {
+    const response = await api.post(`/research/${id}/unlock`);
+    return response.data;
+  },
+};
+
+// Automation API
+export const automationAPI = {
+  getSettings: async () => {
+    const response = await api.get('/automation');
+    return response.data;
+  },
+  updateSettings: async (settings: any) => {
+    const response = await api.put('/automation', settings);
+    return response.data;
+  },
+};
+
+// Product Bugs API
+export const productBugAPI = {
+  getBugs: async (productId: number) => {
+    const response = await api.get(`/products/${productId}/bugs`);
+    return response.data;
+  },
+  startFix: async (bugId: number) => {
+    const response = await api.post(`/bugs/${bugId}/start-fix`);
+    return response.data;
+  },
+  completeFix: async (bugId: number) => {
+    const response = await api.post(`/bugs/${bugId}/complete-fix`);
+    return response.data;
+  },
+};
+
 export default api;
 

@@ -9,6 +9,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\AutomationSetting;
 
 class User extends Authenticatable
 {
@@ -97,6 +98,18 @@ class User extends Authenticatable
     public function purchases(): HasMany
     {
         return $this->hasMany(UserPurchase::class);
+    }
+
+    public function researches(): BelongsToMany
+    {
+        return $this->belongsToMany(Research::class, 'user_researches')
+            ->withPivot('unlocked_at')
+            ->withTimestamps();
+    }
+
+    public function automationSetting(): HasOne
+    {
+        return $this->hasOne(AutomationSetting::class);
     }
 
     /**

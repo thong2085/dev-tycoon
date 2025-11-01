@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
@@ -36,5 +37,33 @@ class Product extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function bugs(): HasMany
+    {
+        return $this->hasMany(ProductBug::class);
+    }
+
+    /**
+     * Get active bugs affecting this product
+     */
+    public function getActiveBugs()
+    {
+        return $this->bugs()->where('status', 'active')->get();
+    }
+
+    /**
+     * Get total revenue penalty from active bugs
+     */
+    public function getTotalPenaltyMultiplier(): float
+    {
+        $activeBugs = $this->getActiveBugs();
+        $multiplier = 1.0;
+        
+        foreach ($activeBugs as $bug) {
+            $multiplier *= $bug->getPenaltyMultiplier();
+        }
+        
+        return $multiplier;
     }
 }

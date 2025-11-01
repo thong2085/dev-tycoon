@@ -8,6 +8,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 import Skeleton, { SkeletonCard } from '@/components/Skeleton';
 import CountUpNumber from '@/components/CountUpNumber';
 import EmptyState from '@/components/EmptyState';
+import { productBugAPI } from '@/lib/api';
 
 interface Product {
   id: number;
@@ -26,9 +27,24 @@ interface Product {
   };
 }
 
+interface ProductBug {
+  id: number;
+  title: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  revenue_penalty: number;
+  fix_cost: number;
+  fix_time_minutes: number;
+  status: 'active' | 'fixing' | 'fixed';
+  discovered_at: string;
+  fix_started_at: string | null;
+  fixed_at: string | null;
+}
+
 export default function ProductsPage() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
+  const [bugs, setBugs] = useState<Record<number, ProductBug[]>>({});
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void; type?: 'info' | 'warning' | 'danger' } | null>(null);
@@ -37,9 +53,39 @@ export default function ProductsPage() {
 
   useEffect(() => {
     loadProducts();
-    const interval = setInterval(loadProducts, 5000); // Auto-refresh every 5s
+    const interval = setInterval(() => {
+      loadProducts();
+    }, 5000); // Auto-refresh every 5s
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (products.length > 0) {
+      loadBugs();
+      const bugsInterval = setInterval(loadBugs, 5000);
+      return () => clearInterval(bugsInterval);
+    }
+  }, [products.length]);
+
+  const loadBugs = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token || products.length === 0) return;
+
+      const bugsMap: Record<number, ProductBug[]> = {};
+      for (const product of products) {
+        try {
+          const bugsData = await productBugAPI.getBugs(product.id);
+          bugsMap[product.id] = Array.isArray(bugsData.data) ? bugsData.data : bugsData;
+        } catch (error) {
+          console.error(`Failed to load bugs for product ${product.id}:`, error);
+        }
+      }
+      setBugs(bugsMap);
+    } catch (error) {
+      console.error('Failed to load bugs:', error);
+    }
+  };
 
   const loadProducts = async () => {
     try {
@@ -57,6 +103,24 @@ export default function ProductsPage() {
     } catch (error) {
       console.error('Failed to load products:', error);
       setLoading(false);
+    }
+  };
+
+  const launchCampaign = async (
+    productId: number,
+    pkg: { name: string; duration_minutes: number; revenue_multiplier: number; cost: number }
+  ) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${API_URL}/products/${productId}/campaigns`,
+        pkg,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setToast({ message: `📈 Launched: ${pkg.name}`, type: 'success' });
+      loadProducts();
+    } catch (error: any) {
+      setToast({ message: error.response?.data?.message || 'Failed to launch campaign', type: 'error' });
     }
   };
 
@@ -102,6 +166,27 @@ export default function ProductsPage() {
           loadProducts();
         } catch (error: any) {
           setToast({ message: error.response?.data?.message || 'Failed to retire product', type: 'error' });
+        }
+      }
+    });
+  };
+
+  const handleFixBug = (bug: ProductBug) => {
+    setConfirmModal({
+      title: '🔧 Fix Bug',
+      message: `Fix "${bug.title}"?\n\nCost: $${bug.fix_cost}\nTime: ${bug.fix_time_minutes} minutes\n\nThis will restore ${bug.revenue_penalty}% of revenue.`,
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          const result = await productBugAPI.startFix(bug.id);
+          setToast({ message: result.message || 'Started fixing bug', type: 'success' });
+          setConfirmModal(null);
+          loadBugs();
+        } catch (error: any) {
+          setToast({ 
+            message: error.response?.data?.message || error.response?.data?.error || 'Failed to start bug fix', 
+            type: 'error' 
+          });
         }
       }
     });
@@ -233,8 +318,91 @@ export default function ProductsPage() {
                   </div>
                 )}
 
+                {/* Bugs Section */}
+                {bugs[product.id] && bugs[product.id].length > 0 && (
+                  <div className="mb-4 p-3 bg-red-900/20 border border-red-500/30 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-bold text-red-400">🐛 Active Bugs</h4>
+                      <span className="text-xs text-red-400">
+                        {bugs[product.id].filter(b => b.status === 'active').length} active
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {bugs[product.id]
+                        .filter(bug => bug.status !== 'fixed')
+                        .map((bug) => (
+                          <div key={bug.id} className="bg-gray-900/50 rounded p-2 border border-red-500/20">
+                            <div className="flex items-start justify-between mb-1">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className={`text-xs px-1.5 py-0.5 rounded font-bold ${
+                                    bug.severity === 'critical' ? 'bg-red-600 text-white' :
+                                    bug.severity === 'high' ? 'bg-orange-600 text-white' :
+                                    bug.severity === 'medium' ? 'bg-yellow-600 text-white' :
+                                    'bg-blue-600 text-white'
+                                  }`}>
+                                    {bug.severity.toUpperCase()}
+                                  </span>
+                                  <span className="text-xs text-white font-semibold">{bug.title}</span>
+                                </div>
+                                <p className="text-xs text-gray-400 mb-2">{bug.description}</p>
+                                <div className="flex items-center gap-3 text-xs">
+                                  <span className="text-red-400">
+                                    -{bug.revenue_penalty}% revenue
+                                  </span>
+                                  {bug.status === 'fixing' && bug.fix_started_at && (
+                                    <span className="text-yellow-400">
+                                      Fixing... ({Math.max(0, bug.fix_time_minutes - Math.floor((new Date().getTime() - new Date(bug.fix_started_at).getTime()) / 60000))}m left)
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            {bug.status === 'active' && (
+                              <button
+                                onClick={() => handleFixBug(bug)}
+                                className="w-full mt-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded font-bold transition-all"
+                              >
+                                🔧 Fix (${bug.fix_cost} - {bug.fix_time_minutes}m)
+                              </button>
+                            )}
+                            {bug.status === 'fixing' && (
+                              <div className="mt-2 px-3 py-1.5 bg-yellow-900/30 text-yellow-400 text-xs rounded text-center">
+                                Fixing in progress...
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Actions */}
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-3">
+                  {/* Quick Campaigns */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => launchCampaign(product.id, { name: 'Quick Boost', duration_minutes: 60, revenue_multiplier: 1.5, cost: 500 })}
+                      className="px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold"
+                    >
+                      ⚡ 1h +50%
+                    </button>
+                    <button
+                      onClick={() => launchCampaign(product.id, { name: 'Brand Push', duration_minutes: 240, revenue_multiplier: 1.3, cost: 1200 })}
+                      className="px-3 py-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold"
+                    >
+                      📣 4h +30%
+                    </button>
+                    <button
+                      onClick={() => launchCampaign(product.id, { name: 'Viral Attempt', duration_minutes: 1440, revenue_multiplier: 2.0, cost: 10000 })}
+                      className="px-3 py-2 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold"
+                    >
+                      🚀 24h x2
+                    </button>
+                  </div>
+
+                  {/* Product state actions */}
+                  <div className="flex gap-2">
                   {product.active ? (
                     <button
                       onClick={() => handlePause(product.id, product.name)}
@@ -256,6 +424,7 @@ export default function ProductsPage() {
                   >
                     🗑️
                   </button>
+                  </div>
                 </div>
               </div>
             ))}

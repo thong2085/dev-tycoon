@@ -51,6 +51,20 @@ class Employee extends Model
     {
         $baseProductivity = $this->productivity;
         
+        // Apply research productivity bonus
+        if ($this->company) {
+            $user = $this->company->user;
+            if ($user) {
+                $researches = $user->researches()->get();
+                foreach ($researches as $research) {
+                    $effects = $research->effects ?? [];
+                    if (isset($effects['productivity_bonus'])) {
+                        $baseProductivity += $effects['productivity_bonus'];
+                    }
+                }
+            }
+        }
+        
         // Energy multiplier (0-100%)
         $energyMultiplier = $this->energy / 100;
         
@@ -104,8 +118,24 @@ class Employee extends Model
         }
 
         // Increase morale if resting/idle
+        $moraleRegen = 2; // Base +2% per minute
+        
+        // Apply research bonuses
+        if ($this->company) {
+            $user = $this->company->user;
+            if ($user) {
+                $researches = $user->researches()->get();
+                foreach ($researches as $research) {
+                    $effects = $research->effects ?? [];
+                    if (isset($effects['morale_regen_bonus'])) {
+                        $moraleRegen += $effects['morale_regen_bonus'];
+                    }
+                }
+            }
+        }
+        
         if ($this->status === 'idle' || $this->energy < 50) {
-            $this->morale = min(100, $this->morale + 2);
+            $this->morale = min(100, $this->morale + $moraleRegen);
         }
 
         // Low energy affects morale
@@ -114,8 +144,24 @@ class Employee extends Model
         }
 
         // Restore energy when idle (not working)
+        $energyRegen = 3; // Base +3% per minute
+        
+        // Apply research bonuses
+        if ($this->company) {
+            $user = $this->company->user;
+            if ($user) {
+                $researches = $user->researches()->get();
+                foreach ($researches as $research) {
+                    $effects = $research->effects ?? [];
+                    if (isset($effects['energy_regen_bonus'])) {
+                        $energyRegen += $effects['energy_regen_bonus'];
+                    }
+                }
+            }
+        }
+        
         if ($this->status === 'idle' && !$this->assigned_project_id) {
-            $this->energy = min(100, $this->energy + 3); // +3% energy per minute when resting
+            $this->energy = min(100, $this->energy + $energyRegen);
         }
 
         $this->save();

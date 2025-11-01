@@ -73,8 +73,15 @@ class AchievementController extends Controller
                 ]);
 
                 // Grant rewards
+                $company = $user->company;
                 $gameState = $user->gameState;
-                $gameState->money += $achievement->reward_money;
+                
+                // Add reward money to COMPANY cash
+                if ($company) {
+                    $company->cash += $achievement->reward_money;
+                    $company->save();
+                }
+                
                 $gameState->xp += $achievement->reward_xp;
                 $gameState->prestige_points += $achievement->reward_prestige_points;
                 $gameState->save();

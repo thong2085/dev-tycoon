@@ -101,24 +101,28 @@ class SkillController extends Controller
             ], 400);
         }
         
-        // Check if user has enough money
-        $gameState = $user->gameState;
+        // Check COMPANY cash, not gameState money
+        $company = $user->company;
+        if (!$company) {
+            return response()->json(['error' => 'Company not found'], 404);
+        }
+        
         $unlockCost = $skill->getUnlockCost();
         
-        if ($gameState->money < $unlockCost) {
+        if ($company->cash < $unlockCost) {
             return response()->json([
                 'success' => false,
                 'error' => 'Not enough money',
                 'required' => $unlockCost,
-                'current' => $gameState->money
+                'current' => $company->cash
             ], 400);
         }
         
         DB::beginTransaction();
         try {
-            // Deduct money
-            $gameState->money -= $unlockCost;
-            $gameState->save();
+            // Deduct money from COMPANY cash
+            $company->cash -= $unlockCost;
+            $company->save();
             
             // Unlock skill at level 1
             $user->skills()->attach($skill->id, [
@@ -134,7 +138,7 @@ class SkillController extends Controller
                 'message' => "Unlocked {$skill->name}!",
                 'data' => [
                     'skill' => $skill,
-                    'new_money' => $gameState->money
+                    'company' => $company
                 ]
             ]);
         } catch (\Exception $e) {
@@ -177,24 +181,28 @@ class SkillController extends Controller
             ], 400);
         }
         
-        // Check if user has enough money
-        $gameState = $user->gameState;
+        // Check COMPANY cash, not gameState money
+        $company = $user->company;
+        if (!$company) {
+            return response()->json(['error' => 'Company not found'], 404);
+        }
+        
         $upgradeCost = $skill->getUpgradeCost($userSkill->level);
         
-        if ($gameState->money < $upgradeCost) {
+        if ($company->cash < $upgradeCost) {
             return response()->json([
                 'success' => false,
                 'error' => 'Not enough money',
                 'required' => $upgradeCost,
-                'current' => $gameState->money
+                'current' => $company->cash
             ], 400);
         }
         
         DB::beginTransaction();
         try {
-            // Deduct money
-            $gameState->money -= $upgradeCost;
-            $gameState->save();
+            // Deduct money from COMPANY cash
+            $company->cash -= $upgradeCost;
+            $company->save();
             
             // Upgrade skill
             $userSkill->level += 1;
@@ -208,7 +216,7 @@ class SkillController extends Controller
                 'data' => [
                     'skill' => $skill,
                     'new_level' => $userSkill->level,
-                    'new_money' => $gameState->money,
+                    'company' => $company,
                     'next_upgrade_cost' => $userSkill->level < $skill->max_level 
                         ? $skill->getUpgradeCost($userSkill->level) 
                         : null

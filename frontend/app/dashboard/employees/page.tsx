@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { employeeAPI, projectAPI } from '@/lib/api';
+import { employeeAPI, projectAPI, automationAPI } from '@/lib/api';
 import { Employee, Project } from '@/types/game';
 import Toast from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -21,6 +21,7 @@ export default function EmployeesPage() {
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void; type?: 'info' | 'warning' | 'danger' } | null>(null);
+  const [automationSettings, setAutomationSettings] = useState<any>(null);
 
   const EMPLOYEE_TIERS = [
     { role: 'junior', label: '👶 Junior Developer', cost: 1000, salary: 100, productivity: 50, description: 'Fresh graduate, learning the basics' },
@@ -32,9 +33,22 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000); // Refresh every 5 seconds
+    loadAutomationSettings();
+    const interval = setInterval(() => {
+      loadData();
+      loadAutomationSettings();
+    }, 5000); // Refresh every 5 seconds
     return () => clearInterval(interval);
   }, []);
+
+  const loadAutomationSettings = async () => {
+    try {
+      const settings = await automationAPI.getSettings();
+      setAutomationSettings(settings.data || settings);
+    } catch (error) {
+      console.error('Failed to load automation settings:', error);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -219,6 +233,210 @@ export default function EmployeesPage() {
             </button>
           </div>
         </div>
+
+        {/* Automation Settings */}
+        {automationSettings && (
+          <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border-2 border-purple-500/50 rounded-lg p-6 mb-8">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+              🤖 Manager Automation
+              <span className="text-sm font-normal text-gray-400">
+                (Auto-runs every minute)
+              </span>
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Auto Rest */}
+              <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-bold text-lg mb-1">⚡ Auto Rest</h3>
+                    <p className="text-sm text-gray-400">
+                      Automatically rest employees when energy or morale is too low
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={automationSettings.auto_rest_enabled}
+                      onChange={async (e) => {
+                        try {
+                          const updated = await automationAPI.updateSettings({
+                            ...automationSettings,
+                            auto_rest_enabled: e.target.checked,
+                          });
+                          setAutomationSettings(updated.data || updated);
+                          setToast({ 
+                            message: `Auto Rest ${e.target.checked ? 'enabled' : 'disabled'}`, 
+                            type: 'success' 
+                          });
+                        } catch (error: any) {
+                          setToast({ 
+                            message: error.response?.data?.message || 'Failed to update settings', 
+                            type: 'error' 
+                          });
+                        }
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                  </label>
+                </div>
+                {automationSettings.auto_rest_enabled && (
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Energy Threshold:</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={automationSettings.auto_rest_energy_threshold}
+                        onChange={async (e) => {
+                          const value = parseInt(e.target.value);
+                          if (!isNaN(value)) {
+                            try {
+                              const updated = await automationAPI.updateSettings({
+                                ...automationSettings,
+                                auto_rest_energy_threshold: value,
+                              });
+                              setAutomationSettings(updated.data || updated);
+                            } catch (error) {
+                              console.error('Failed to update threshold:', error);
+                            }
+                          }
+                        }}
+                        className="w-20 px-2 py-1 bg-gray-700 rounded text-white text-center"
+                      />
+                      <span className="text-gray-400">%</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Morale Threshold:</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={automationSettings.auto_rest_morale_threshold}
+                        onChange={async (e) => {
+                          const value = parseInt(e.target.value);
+                          if (!isNaN(value)) {
+                            try {
+                              const updated = await automationAPI.updateSettings({
+                                ...automationSettings,
+                                auto_rest_morale_threshold: value,
+                              });
+                              setAutomationSettings(updated.data || updated);
+                            } catch (error) {
+                              console.error('Failed to update threshold:', error);
+                            }
+                          }
+                        }}
+                        className="w-20 px-2 py-1 bg-gray-700 rounded text-white text-center"
+                      />
+                      <span className="text-gray-400">%</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Employees will be automatically rested when energy &lt; {automationSettings.auto_rest_energy_threshold}% or morale &lt; {automationSettings.auto_rest_morale_threshold}%
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Auto Assign */}
+              <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-bold text-lg mb-1">🎯 Auto Assign</h3>
+                    <p className="text-sm text-gray-400">
+                      Automatically assign idle employees to available projects
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={automationSettings.auto_assign_enabled}
+                      onChange={async (e) => {
+                        try {
+                          const updated = await automationAPI.updateSettings({
+                            ...automationSettings,
+                            auto_assign_enabled: e.target.checked,
+                          });
+                          setAutomationSettings(updated.data || updated);
+                          setToast({ 
+                            message: `Auto Assign ${e.target.checked ? 'enabled' : 'disabled'}`, 
+                            type: 'success' 
+                          });
+                        } catch (error: any) {
+                          setToast({ 
+                            message: error.response?.data?.message || 'Failed to update settings', 
+                            type: 'error' 
+                          });
+                        }
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+                {automationSettings.auto_assign_enabled && (
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Min Energy:</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={automationSettings.auto_assign_min_energy}
+                        onChange={async (e) => {
+                          const value = parseInt(e.target.value);
+                          if (!isNaN(value)) {
+                            try {
+                              const updated = await automationAPI.updateSettings({
+                                ...automationSettings,
+                                auto_assign_min_energy: value,
+                              });
+                              setAutomationSettings(updated.data || updated);
+                            } catch (error) {
+                              console.error('Failed to update threshold:', error);
+                            }
+                          }
+                        }}
+                        className="w-20 px-2 py-1 bg-gray-700 rounded text-white text-center"
+                      />
+                      <span className="text-gray-400">%</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-400">Min Morale:</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={automationSettings.auto_assign_min_morale}
+                        onChange={async (e) => {
+                          const value = parseInt(e.target.value);
+                          if (!isNaN(value)) {
+                            try {
+                              const updated = await automationAPI.updateSettings({
+                                ...automationSettings,
+                                auto_assign_min_morale: value,
+                              });
+                              setAutomationSettings(updated.data || updated);
+                            } catch (error) {
+                              console.error('Failed to update threshold:', error);
+                            }
+                          }
+                        }}
+                        className="w-20 px-2 py-1 bg-gray-700 rounded text-white text-center"
+                      />
+                      <span className="text-gray-400">%</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Only employees with energy ≥ {automationSettings.auto_assign_min_energy}% and morale ≥ {automationSettings.auto_assign_min_morale}% will be auto-assigned
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Team Stats */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8 animate-slide-up">

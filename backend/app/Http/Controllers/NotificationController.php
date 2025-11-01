@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Project;
 use App\Models\Achievement;
 use App\Models\Employee;
+use App\Models\Product;
+use App\Models\ProductBug;
 use Illuminate\Http\Request;
 
 class NotificationController extends Controller
@@ -21,6 +23,7 @@ class NotificationController extends Controller
             'projects' => 0,
             'achievements' => 0,
             'employees' => 0,
+            'products' => 0,
         ];
         
         // 1. PROJECTS: Count completed projects (ready to claim)
@@ -43,6 +46,13 @@ class NotificationController extends Controller
                 })
                 ->count();
         }
+        
+        // 4. PRODUCTS: Count active bugs on products
+        $counts['products'] = ProductBug::whereHas('product', function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        })
+            ->where('status', 'active')
+            ->count();
         
         return response()->json([
             'success' => true,

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { skillsAPI, gameAPI } from '@/lib/api';
-import { SkillCategory, GameState } from '@/types/game';
+import { SkillCategory, GameState, Company } from '@/types/game';
 import Toast from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
 import Skeleton, { SkeletonCard } from '@/components/Skeleton';
@@ -14,6 +14,7 @@ export default function SkillsPage() {
   const router = useRouter();
   const [skillCategories, setSkillCategories] = useState<SkillCategory[]>([]);
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -40,12 +41,9 @@ export default function SkillsPage() {
         gameAPI.getGameState()
       ]);
 
-      console.log('Game Data:', gameData.data);
-      console.log('Money:', gameData.data.money, 'Type:', typeof gameData.data.money);
-      console.log('Skills:', skillsData.data);
-
       setSkillCategories(skillsData.data);
       setGameState(gameData.data);
+      setCompany(gameData.company);
       setLoading(false);
     } catch (error) {
       console.error('Failed to load skills:', error);
@@ -54,7 +52,7 @@ export default function SkillsPage() {
   };
 
   const handleUnlockSkill = async (skillId: number, skillName: string, cost: number) => {
-    if (!gameState || Number(gameState.money) < Number(cost)) {
+    if (!company || company.cash < cost) {
       setToast({ message: 'Not enough money!', type: 'error' });
       return;
     }
@@ -76,7 +74,7 @@ export default function SkillsPage() {
   };
 
   const handleUpgradeSkill = async (skillId: number, skillName: string, cost: number, currentLevel: number) => {
-    if (!gameState || Number(gameState.money) < Number(cost)) {
+    if (!company || company.cash < cost) {
       setToast({ message: 'Not enough money!', type: 'error' });
       return;
     }
@@ -172,11 +170,11 @@ export default function SkillsPage() {
               </p>
             </div>
             
-            {gameState && (
+            {company && (
               <div className="bg-gradient-to-br from-green-900/50 to-green-800/30 border border-green-500/30 px-6 py-4 rounded-lg shadow-lg hover:shadow-green-500/30 transition-all">
                 <div className="text-sm text-gray-400 mb-1">Your Money</div>
                 <div className="text-3xl font-bold text-green-400">
-                  $<CountUpNumber value={Number(gameState.money)} />
+                  $<CountUpNumber value={company ? Number(company.cash) : 0} />
                 </div>
               </div>
             )}
@@ -354,7 +352,7 @@ export default function SkillsPage() {
                   {/* Action Button */}
                   {!skill.is_unlocked ? (
                     (() => {
-                      const hasMoney = gameState && Number(gameState.money) >= Number(skill.unlock_cost);
+                      const hasMoney = company && company.cash >= skill.unlock_cost;
                       
                       return (
                         <button
@@ -374,11 +372,11 @@ export default function SkillsPage() {
                     <button
                       onClick={() => handleUpgradeSkill(skill.id, skill.name, skill.upgrade_cost!, skill.current_level)}
                       className={`w-full py-3 rounded-lg font-bold transition-all ${
-                        gameState && Number(gameState.money) >= Number(skill.upgrade_cost)
+                        company && company.cash >= skill.upgrade_cost
                           ? 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg hover:shadow-blue-500/50 hover:scale-105'
                           : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                       }`}
-                      disabled={!gameState || Number(gameState.money) < Number(skill.upgrade_cost)}
+                      disabled={!company || company.cash < skill.upgrade_cost}
                     >
                       ⬆️ Upgrade to Lv.{skill.current_level + 1} • ${Number(skill.upgrade_cost).toFixed(0)}
                     </button>

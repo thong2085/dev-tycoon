@@ -42,13 +42,16 @@ class Leaderboard extends Model
     /**
      * Update or create leaderboard entry for a user
      */
-    public static function updateEntry($userId, $gameState): void
+    public static function updateEntry($userId, $gameState, $company = null): void
     {
+        // Use company cash as primary score if available, otherwise use gameState money
+        $score = $company ? $company->cash : $gameState->money;
+        
         self::updateOrCreate(
             ['user_id' => $userId],
             [
-                'score' => $gameState->money, // Primary score = money
-                'money' => $gameState->money,
+                'score' => $score, // Primary score = company cash
+                'money' => $score, // Display as money
                 'level' => $gameState->level,
                 'reputation' => $gameState->reputation ?? 0,
                 'projects_completed' => $gameState->completed_projects ?? 0,

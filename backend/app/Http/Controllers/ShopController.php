@@ -32,16 +32,20 @@ class ShopController extends Controller
 
         $user = $request->user();
         $item = ShopItem::findOrFail($request->item_id);
-        $gameState = $user->gameState;
+        $company = $user->company;
 
-        // Check if user can afford
-        if ($gameState->money < $item->price) {
+        if (!$company) {
+            return response()->json(['error' => 'Company not found'], 404);
+        }
+
+        // Check COMPANY cash, not gameState money
+        if ($company->cash < $item->price) {
             return response()->json(['error' => 'Not enough money!'], 400);
         }
 
-        // Deduct money
-        $gameState->money -= $item->price;
-        $gameState->save();
+        // Deduct money from COMPANY cash
+        $company->cash -= $item->price;
+        $company->save();
 
         // Create purchase record
         $expiresAt = $item->duration_minutes 
@@ -68,7 +72,7 @@ class ShopController extends Controller
             'success' => true,
             'message' => $message,
             'purchase' => $purchase,
-            'game_state' => $gameState,
+            'company' => $company,
         ]);
     }
 

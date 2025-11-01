@@ -35,6 +35,18 @@ Schedule::command('game:pay-salaries')->everyMinute();
 // Accrue product revenue every minute
 Schedule::command('game:process-products')->everyMinute();
 
+// Process automation (auto rest, auto assign) every minute
+Schedule::command('game:process-automation')->everyMinute();
+
+// Spawn product bugs randomly (every 3 minutes)
+Schedule::command('game:spawn-product-bugs')->everyThreeMinutes();
+
+// Complete bug fixes that have reached their fix time (every minute)
+Schedule::command('game:complete-bug-fixes')->everyMinute();
+
 // Trigger random market events
 Schedule::command('game:trigger-market-event')->everyFiveMinutes();
+
+// Check for bankrupt companies (every 5 minutes)
+Schedule::command('game:check-bankruptcy')->everyFiveMinutes();
 

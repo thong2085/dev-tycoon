@@ -47,6 +47,11 @@ class Achievement extends Model
         $current = $this->getCurrentValueFor($user);
         $required = $this->requirement_value;
         
+        // Avoid division by zero
+        if ($required <= 0) {
+            return $current > 0 ? 100 : 0;
+        }
+        
         return min(100, ($current / $required) * 100);
     }
 
@@ -56,14 +61,15 @@ class Achievement extends Model
     private function getCurrentValueFor(User $user): int
     {
         $gameState = $user->gameState;
+        $company = $user->companies()->first();
         
         return match($this->requirement_type) {
-            'money' => $gameState->money,
+            'money' => $company ? (int)$company->cash : 0, // Use company cash
             'level' => $gameState->level,
             'projects' => $gameState->completed_projects ?? 0,
             'reputation' => $gameState->reputation ?? 0,
             'clicks' => $gameState->total_clicks ?? 0,
-            'employees' => $user->companies()->first()?->employees()->count() ?? 0,
+            'employees' => $company?->employees()->count() ?? 0,
             'skills' => $user->skills()->count(),
             'prestige' => $gameState->prestige_level ?? 0,
             default => 0,

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { shopAPI, gameAPI } from '@/lib/api';
-import { ShopItem, GameState } from '@/types/game';
+import { ShopItem, GameState, Company } from '@/types/game';
 import Toast from '@/components/Toast';
 import ConfirmModal from '@/components/ConfirmModal';
 import Skeleton, { SkeletonCard } from '@/components/Skeleton';
@@ -14,6 +14,7 @@ export default function ShopPage() {
   const router = useRouter();
   const [items, setItems] = useState<ShopItem[]>([]);
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; onConfirm: () => void; type?: 'info' | 'warning' | 'danger' } | null>(null);
@@ -31,6 +32,7 @@ export default function ShopPage() {
       ]);
       setItems(itemsData.items || []);
       setGameState(gameData.data);
+      setCompany(gameData.company);
     } catch (error) {
       console.error('Failed to load shop:', error);
     } finally {
@@ -39,15 +41,7 @@ export default function ShopPage() {
   };
 
   const handlePurchase = async (item: ShopItem) => {
-    console.log('💰 Purchase Debug:', {
-      money: gameState?.money,
-      moneyType: typeof gameState?.money,
-      price: item.price,
-      priceType: typeof item.price,
-      canAfford: Number(gameState?.money) >= Number(item.price)
-    });
-
-    if (!gameState || Number(gameState.money) < Number(item.price)) {
+    if (!company || company.cash < item.price) {
       setToast({ message: 'Not enough money!', type: 'error' });
       return;
     }
@@ -60,7 +54,7 @@ export default function ShopPage() {
         try {
           const result = await shopAPI.purchase(item.id);
           setToast({ message: result.message || 'Purchased successfully!', type: 'success' });
-          setGameState(result.game_state);
+          setCompany(result.company);
           setConfirmModal(null);
           loadData(); // Reload items
         } catch (error: any) {
@@ -80,7 +74,7 @@ export default function ShopPage() {
   const categories = ['all', 'booster', 'special', 'permanent'];
   const filteredItems = filter === 'all' ? items : items.filter(i => i.category === filter);
 
-  if (loading || !gameState) {
+  if (loading || !gameState || !company) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 text-white p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
@@ -121,7 +115,7 @@ export default function ShopPage() {
             <div className="bg-gradient-to-br from-green-900/50 to-emerald-900/30 border border-green-500/30 px-6 py-4 rounded-lg shadow-lg hover:shadow-green-500/30 transition-all">
               <div className="text-sm text-gray-400 mb-1">Your Balance</div>
               <div className="text-3xl font-bold text-green-400">
-                $<CountUpNumber value={Number(gameState.money)} />
+                $<CountUpNumber value={company ? Number(company.cash) : 0} />
               </div>
             </div>
           </div>
@@ -148,19 +142,7 @@ export default function ShopPage() {
         {filteredItems.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredItems.map((item, index) => {
-              const canAfford = Number(gameState.money) >= Number(item.price);
-              
-              // Debug first item only
-              if (index === 0) {
-                console.log('🛒 Shop Item Debug:', {
-                  itemName: item.name,
-                  money: gameState.money,
-                  moneyNumber: Number(gameState.money),
-                  price: item.price,
-                  priceNumber: Number(item.price),
-                  canAfford
-                });
-              }
+              const canAfford = company ? Number(company.cash) >= Number(item.price) : false;
               
               return (
                 <div 
@@ -184,7 +166,7 @@ export default function ShopPage() {
 
                   {!canAfford && (
                     <div className="mb-4 p-2 bg-red-900/20 border border-red-500/30 rounded-lg text-sm text-red-400">
-                      💰 Need ${(Number(item.price) - Number(gameState.money)).toLocaleString()} more
+                      💰 Need ${company ? (Number(item.price) - Number(company.cash)).toLocaleString() : Number(item.price).toLocaleString()} more
                     </div>
                   )}
 

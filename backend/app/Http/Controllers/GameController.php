@@ -21,11 +21,14 @@ class GameController extends Controller
             return response()->json(['error' => 'Game state not found'], 404);
         }
 
-        // Calculate offline income
+        $company = $gameState->company;
+
+        // Calculate offline income - add to COMPANY cash, not gameState money
         $offlineIncome = $gameState->calculateOfflineIncome();
         
-        if ($offlineIncome > 0) {
-            $gameState->money += $offlineIncome;
+        if ($offlineIncome > 0 && $company) {
+            $company->cash += $offlineIncome;
+            $company->save();
             $gameState->last_active = now();
             $gameState->save();
         }
@@ -47,7 +50,7 @@ class GameController extends Controller
             'data' => $gameState,
             'offline_income' => $offlineIncome,
             'active_events' => $activeEvents,
-            'company' => $gameState->company,
+            'company' => $company,
             'skill_bonuses' => [
                 'passive_income' => $skillPassiveIncome,
                 'click_power_bonus' => $skillClickBonus,
@@ -62,9 +65,10 @@ class GameController extends Controller
     {
         $user = $request->user();
         $gameState = $user->gameState;
+        $company = $gameState?->company;
 
-        if (!$gameState) {
-            return response()->json(['error' => 'Game state not found'], 404);
+        if (!$gameState || !$company) {
+            return response()->json(['error' => 'Game state or company not found'], 404);
         }
 
         // Calculate click power with skill bonus
@@ -72,9 +76,11 @@ class GameController extends Controller
         $baseClickPower = $gameState->click_power;
         $finalClickPower = $baseClickPower * (1 + $skillClickBonus);
         
-        // Add click power to money
+        // Add click power to COMPANY cash, not gameState money
         $earnedMoney = $finalClickPower;
-        $gameState->money += $earnedMoney;
+        $company->cash += $earnedMoney;
+        $company->save();
+        
         $gameState->lifetime_earnings += $earnedMoney;
         $gameState->total_clicks += 1;
         $gameState->xp += 1; // Earn 1 XP per click
@@ -90,10 +96,10 @@ class GameController extends Controller
         $gameState->save();
 
         // Update leaderboard
-        $this->updateLeaderboard($user->id, $gameState);
+        $this->updateLeaderboard($user->id, $gameState, $company);
 
         return response()->json([
-            'money' => $gameState->money,
+            'money' => $company->cash,
             'click_power' => $gameState->click_power,
             'effective_click_power' => $finalClickPower,
             'skill_bonus' => $skillClickBonus,
@@ -111,6 +117,11 @@ class GameController extends Controller
 
         $user = $request->user();
         $gameState = $user->gameState;
+        $company = $gameState?->company;
+
+        if (!$company) {
+            return response()->json(['error' => 'Company not found'], 404);
+        }
 
         $upgradeType = $request->upgrade_type;
         $upgrades = $gameState->upgrades ?? [];
@@ -123,12 +134,14 @@ class GameController extends Controller
         $baseCost = $this->getUpgradeBaseCost($upgradeType);
         $cost = $baseCost * pow(1.15, $currentLevel);
 
-        if ($gameState->money < $cost) {
+        // Check COMPANY cash, not gameState money
+        if ($company->cash < $cost) {
             return response()->json(['error' => 'Not enough money'], 400);
         }
 
-        // Deduct money
-        $gameState->money -= $cost;
+        // Deduct money from COMPANY cash
+        $company->cash -= $cost;
+        $company->save();
 
         // Apply upgrade effect
         $this->applyUpgradeEffect($gameState, $upgradeType, $nextLevel);
@@ -141,6 +154,7 @@ class GameController extends Controller
         return response()->json([
             'success' => true,
             'data' => $gameState,
+            'company' => $company,
             'cost' => $cost,
             'upgrade_level' => $nextLevel,
         ]);
@@ -150,9 +164,14 @@ class GameController extends Controller
     {
         $user = $request->user();
         $gameState = $user->gameState;
+        $company = $user->companies()->first();
 
-        // Check if eligible for prestige (level 50+ and $1M+)
-        if ($gameState->level < 50 || $gameState->money < 1000000) {
+        if (!$company) {
+            return response()->json(['error' => 'Company not found'], 404);
+        }
+
+        // Check if eligible for prestige (level 50+ and $1M+ COMPANY cash)
+        if ($gameState->level < 50 || $company->cash < 1000000) {
             return response()->json([
                 'error' => 'Not eligible for prestige yet',
                 'requirements' => [
@@ -161,26 +180,25 @@ class GameController extends Controller
                 ],
                 'current' => [
                     'level' => $gameState->level,
-                    'money' => $gameState->money,
+                    'money' => $company->cash,
                 ],
             ], 400);
         }
 
         // Calculate prestige points based on progress
-        $prestigePoints = floor($gameState->level / 10) + floor($gameState->money / 1000000);
+        $prestigePoints = floor($gameState->level / 10) + floor($company->cash / 1000000);
         $achievementsCount = $user->achievements()->count();
         $prestigePoints += floor($achievementsCount / 5); // Bonus for achievements
 
         // Save old stats
         $oldLevel = $gameState->level;
-        $oldMoney = $gameState->money;
+        $oldMoney = $company->cash;
 
         // Increase prestige level and points
         $gameState->prestige_level += 1;
         $gameState->prestige_points += $prestigePoints;
 
         // Reset game state but keep prestige bonuses
-        $gameState->money = 100;
         $gameState->click_power = 1 * (1 + ($gameState->prestige_points * 0.1)); // +10% per prestige point
         $gameState->auto_income = 0;
         $gameState->xp = 0;
@@ -194,10 +212,15 @@ class GameController extends Controller
         // Keep skills, achievements, and prestige level
         // Delete projects and employees
         $user->projects()->delete();
-        $company = $user->companies()->first();
         if ($company) {
             $company->employees()->delete();
         }
+        
+        // Reset company cash
+        $company->cash = 100;
+        $company->monthly_revenue = 0;
+        $company->monthly_costs = 0;
+        $company->save();
 
         // Broadcast prestige event
         broadcast(new PlayerPrestiged($user, $gameState->prestige_level, $prestigePoints));
@@ -276,9 +299,9 @@ class GameController extends Controller
         ]);
     }
 
-    private function updateLeaderboard($userId, $gameState)
+    private function updateLeaderboard($userId, $gameState, $company = null)
     {
-        Leaderboard::updateEntry($userId, $gameState);
+        Leaderboard::updateEntry($userId, $gameState, $company);
     }
 
     private function getUpgradeBaseCost($upgradeType): float
@@ -296,10 +319,10 @@ class GameController extends Controller
     {
         switch($upgradeType) {
             case 'click_power':
-                $gameState->click_power += 1;
+                $gameState->setAttribute('click_power', (float)$gameState->click_power + 1.0);
                 break;
             case 'auto_income':
-                $gameState->auto_income += 0.5;
+                $gameState->setAttribute('auto_income', (float)$gameState->auto_income + 0.5);
                 break;
             // Add more upgrade types as needed
         }

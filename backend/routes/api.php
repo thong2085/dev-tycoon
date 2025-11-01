@@ -13,6 +13,10 @@ use App\Http\Controllers\ShopController;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\MarketingCampaignController;
+use App\Http\Controllers\ResearchController;
+use App\Http\Controllers\AutomationController;
+use App\Http\Controllers\ProductBugController;
 
 /*
 |--------------------------------------------------------------------------
@@ -93,6 +97,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/products/{id}/pause', [ProductController::class, 'pause']);
     Route::post('/products/{id}/resume', [ProductController::class, 'resume']);
     Route::delete('/products/{id}', [ProductController::class, 'retire']);
+
+    // Marketing campaigns
+    Route::get('/products/{productId}/campaigns', [MarketingCampaignController::class, 'index']);
+    Route::post('/products/{productId}/campaigns', [MarketingCampaignController::class, 'launch']);
+    
+    // Product Bugs
+    Route::get('/products/{productId}/bugs', [ProductBugController::class, 'index']);
+    Route::post('/bugs/{bugId}/start-fix', [ProductBugController::class, 'startFix']);
+    Route::post('/bugs/{bugId}/complete-fix', [ProductBugController::class, 'completeFix']);
+    
+    // Research Tree
+    Route::get('/research', [ResearchController::class, 'index']);
+    Route::post('/research/{id}/unlock', [ResearchController::class, 'unlock']);
+    
+    // Automation Settings
+    Route::get('/automation', [AutomationController::class, 'getSettings']);
+    Route::put('/automation', [AutomationController::class, 'updateSettings']);
     
     // AI Generation
     Route::prefix('ai')->group(function () {

@@ -190,6 +190,10 @@ class ProjectController extends Controller
         $xpMultiplier = 1 + ($skillBonus * 0.3); // 30% of skill bonus applies to XP
         $reputationMultiplier = 1 + ($skillBonus * 0.2); // 20% of skill bonus applies to reputation
         
+        // Apply research bonuses
+        $researchBonuses = $this->getResearchBonuses($user);
+        $rewardMultiplier *= (1 + ($researchBonuses['project_reward_multiplier'] ?? 0));
+        
         // Calculate final values
         $finalReward = $project->reward * $rewardMultiplier;
         $baseXp = $project->difficulty * 10;
@@ -197,16 +201,14 @@ class ProjectController extends Controller
         $baseReputation = $project->difficulty * 5;
         $finalReputation = $baseReputation * $reputationMultiplier;
         
-        // Add reward to game state
+        // Add reward to COMPANY cash only (remove gameState money duplication)
         $gameState = $user->gameState;
-        $gameState->money += $finalReward;
         $gameState->xp += $finalXp;
         $gameState->reputation += $finalReputation;
         $gameState->completed_projects += 1;
-        
         $gameState->save();
 
-        // Update company cash (project reward is one-time income, not recurring revenue)
+        // Update company cash (project reward is one-time income)
         $company = $user->company;
         if ($company) {
             $company->cash += $finalReward;
@@ -214,7 +216,7 @@ class ProjectController extends Controller
         }
 
         // Update leaderboard
-        Leaderboard::updateEntry($user->id, $gameState);
+        Leaderboard::updateEntry($user->id, $gameState, $company);
 
         // Mark project as claimed by deleting or updating status
         $project->delete();
@@ -228,6 +230,26 @@ class ProjectController extends Controller
             'skill_bonus' => $skillBonus,
             'data' => $gameState,
         ]);
+    }
+
+    protected function getResearchBonuses($user): array
+    {
+        if (!$user) return [];
+        
+        $bonuses = [];
+        $researches = $user->researches()->get();
+        
+        foreach ($researches as $research) {
+            $effects = $research->effects ?? [];
+            foreach ($effects as $key => $value) {
+                if (!isset($bonuses[$key])) {
+                    $bonuses[$key] = 0;
+                }
+                $bonuses[$key] += $value;
+            }
+        }
+        
+        return $bonuses;
     }
 }
 

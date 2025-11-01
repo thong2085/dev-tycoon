@@ -59,7 +59,6 @@ class EmployeeController extends Controller
 
         $user = $request->user();
         $company = $user->companies()->first();
-        $gameState = $user->gameState;
 
         if (!$company) {
             return response()->json(['error' => 'Company not found'], 404);
@@ -76,7 +75,8 @@ class EmployeeController extends Controller
 
         $cost = $costs[$request->role] ?? 1000;
 
-        if ($gameState->money < $cost) {
+        // Check COMPANY cash, not gameState money
+        if ($company->cash < $cost) {
             return response()->json(['error' => 'Not enough money'], 400);
         }
 
@@ -100,9 +100,9 @@ class EmployeeController extends Controller
             'status' => 'idle',
         ]);
 
-        // Deduct cost
-        $gameState->money -= $cost;
-        $gameState->save();
+        // Deduct cost from COMPANY cash
+        $company->cash -= $cost;
+        $company->save();
 
         // Increase company costs
         $company->monthly_costs += $employee->salary;
@@ -111,7 +111,7 @@ class EmployeeController extends Controller
         return response()->json([
             'success' => true,
             'data' => $employee,
-            'game_state' => $gameState,
+            'company' => $company,
             'message' => "Hired {$employee->name} as {$employee->role}!"
         ], 201);
     }

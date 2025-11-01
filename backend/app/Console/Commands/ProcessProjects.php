@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Project;
 use App\Models\Employee;
 use Illuminate\Console\Command;
+use App\Models\MarketEvent;
 
 class ProcessProjects extends Command
 {
@@ -16,14 +17,29 @@ class ProcessProjects extends Command
         $projects = Project::where('status', 'in_progress')->get();
 
         foreach ($projects as $project) {
+            // Get user first
+            $user = $project->user;
+            
             // Calculate progress based on difficulty
             $progressRate = 5; // Base 5% per minute (faster for testing)
             
             // Adjust based on difficulty (harder = slower)
             $progressRate = $progressRate / ($project->difficulty * 0.3);
             
+            // Apply research bonuses
+            $researchBonuses = $this->getResearchBonuses($user);
+            $progressRate *= (1 + ($researchBonuses['project_progress_multiplier'] ?? 0));
+
+            // Apply active market events
+            $activeEvents = MarketEvent::getActiveEvents();
+            foreach ($activeEvents as $event) {
+                $effect = $event->effect ?? [];
+                if (isset($effect['project_progress_multiplier'])) {
+                    $progressRate *= (1 + (float)$effect['project_progress_multiplier']);
+                }
+            }
+            
             // Get user's relevant skills for this project type
-            $user = $project->user;
             $skillBonus = 0;
             
             if ($user) {
@@ -125,6 +141,26 @@ class ProcessProjects extends Command
         return Command::SUCCESS;
     }
 
+    protected function getResearchBonuses($user): array
+    {
+        if (!$user) return [];
+        
+        $bonuses = [];
+        $researches = $user->researches()->get();
+        
+        foreach ($researches as $research) {
+            $effects = $research->effects ?? [];
+            foreach ($effects as $key => $value) {
+                if (!isset($bonuses[$key])) {
+                    $bonuses[$key] = 0;
+                }
+                $bonuses[$key] += $value;
+            }
+        }
+        
+        return $bonuses;
+    }
+
     /**
      * Broadcast notification count update to user
      */
@@ -140,6 +176,11 @@ class ProcessProjects extends Command
                 ->wherePivot('unlocked_at', '>=', now()->subHours(24))
                 ->count(),
             'employees' => 0,
+            'products' => \App\Models\ProductBug::whereHas('product', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })
+                ->where('status', 'active')
+                ->count(),
         ];
         
         if ($company) {

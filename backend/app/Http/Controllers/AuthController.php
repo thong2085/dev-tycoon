@@ -28,10 +28,10 @@ class AuthController extends Controller
             'last_active' => now(),
         ]);
 
-        // Create initial game state
+        // Create initial game state (no money field - use company cash)
         $gameState = GameState::create([
             'user_id' => $user->id,
-            'money' => 100, // Starting money
+            'money' => 0, // Deprecated, use company cash instead
             'click_power' => 1,
             'auto_income' => 0,
             'xp' => 0,
@@ -40,12 +40,12 @@ class AuthController extends Controller
             'last_active' => now(),
         ]);
 
-        // Create initial company
+        // Create initial company with starting cash
         $company = Company::create([
             'user_id' => $user->id,
             'name' => $user->name . "'s Startup",
             'company_level' => 1,
-            'cash' => 0,
+            'cash' => 100, // Starting cash
             'monthly_revenue' => 0,
             'monthly_costs' => 0,
         ]);

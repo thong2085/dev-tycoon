@@ -3,36 +3,25 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Research extends Model
 {
+    protected $table = 'researches';
+    
     protected $fillable = [
-        'company_id',
-        'tech_name',
-        'level',
-        'bonuses',
-        'started_at',
-        'completed_at',
+        'key', 'name', 'description', 'category', 'cost', 'required_level', 'effects', 'icon',
     ];
 
     protected $casts = [
-        'bonuses' => 'array',
-        'started_at' => 'datetime',
-        'completed_at' => 'datetime',
+        'cost' => 'decimal:2',
+        'effects' => 'array',
     ];
 
-    public function company(): BelongsTo
+    public function users(): BelongsToMany
     {
-        return $this->belongsTo(Company::class);
-    }
-
-    /**
-     * Check if research is completed
-     */
-    public function isCompleted(): bool
-    {
-        return $this->completed_at !== null;
+        return $this->belongsToMany(User::class, 'user_researches')
+            ->withPivot('unlocked_at')
+            ->withTimestamps();
     }
 }
-
