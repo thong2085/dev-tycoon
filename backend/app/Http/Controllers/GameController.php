@@ -63,9 +63,21 @@ class GameController extends Controller
             ->select('id', 'title', 'expires_at', 'quest_type', 'current_progress', 'target_progress')
             ->get();
 
+        // Calculate XP for current level (0-99)
+        // Ensure level is at least 1
+        if ($gameState->level < 1) {
+            $gameState->level = 1;
+        }
+        
+        $xpPerLevel = 100;
+        $requiredXpForCurrentLevel = ($gameState->level - 1) * $xpPerLevel;
+        $xpForCurrentLevel = max(0, $gameState->xp - $requiredXpForCurrentLevel);
+
         return response()->json([
             'success' => true,
             'data' => $gameState,
+            'xp_current' => $xpForCurrentLevel, // XP for current level (0-99)
+            'xp_for_next_level' => $xpPerLevel, // XP needed for next level (always 100)
             'offline_income' => $offlineIncome,
             'active_events' => $activeEvents,
             'company' => $company,
@@ -108,11 +120,23 @@ class GameController extends Controller
         $gameState->xp += 1; // Earn 1 XP per click
         $gameState->last_active = now();
 
-        // Level up logic (simple: every 100 XP)
-        $newLevel = floor($gameState->xp / 100) + 1;
-        if ($newLevel > $gameState->level) {
-            $gameState->level = $newLevel;
+        // Level up logic: every 100 XP = 1 level
+        // Ensure level starts at minimum 1
+        if ($gameState->level < 1) {
+            $gameState->level = 1;
+        }
+        
+        $xpPerLevel = 100;
+        // Calculate required XP for current level: (level - 1) * 100
+        // XP needed for next level: level * 100
+        // Example: Level 1 needs 0-99 XP, Level 2 needs 100-199 XP, etc.
+        $requiredXpForNextLevel = $gameState->level * $xpPerLevel;
+        
+        // Check if we have enough XP to level up (handle multiple level ups at once)
+        while ($gameState->xp >= $requiredXpForNextLevel && $gameState->xp > 0) {
+            $gameState->level += 1;
             $gameState->click_power *= 1.1; // 10% boost per level
+            $requiredXpForNextLevel = $gameState->level * $xpPerLevel;
         }
 
         $gameState->save();
@@ -120,12 +144,25 @@ class GameController extends Controller
         // Update leaderboard
         $this->updateLeaderboard($user->id, $gameState, $company);
 
+        // Calculate XP for current level (0-99)
+        // Ensure level is at least 1
+        if ($gameState->level < 1) {
+            $gameState->level = 1;
+        }
+        
+        $xpPerLevel = 100;
+        $requiredXpForCurrentLevel = ($gameState->level - 1) * $xpPerLevel;
+        $xpForCurrentLevel = max(0, $gameState->xp - $requiredXpForCurrentLevel);
+        $xpForNextLevel = $gameState->level * $xpPerLevel;
+
         return response()->json([
             'money' => $company->cash,
             'click_power' => $gameState->click_power,
             'effective_click_power' => $finalClickPower,
             'skill_bonus' => $skillClickBonus,
-            'xp' => $gameState->xp,
+            'xp' => $gameState->xp, // Total XP (cumulative)
+            'xp_current' => max(0, $xpForCurrentLevel), // XP for current level (0-99)
+            'xp_for_next_level' => $xpPerLevel, // XP needed for next level (always 100)
             'level' => $gameState->level,
             'earned' => $earnedMoney,
         ]);

@@ -22,12 +22,9 @@ class AuthController extends Controller
                 'password' => 'required|string|min:8|confirmed',
             ]);
 
-            // Normalize email (trim, lowercase) for consistency
-            $email = strtolower(trim($request->email));
-
             $user = User::create([
                 'name' => $request->name,
-                'email' => $email,
+                'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'level' => 1,
                 'prestige_points' => 0,
@@ -102,107 +99,31 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        // Log login attempt immediately
-        Log::info('Login attempt started', [
-            'email' => $request->email ?? 'missing',
-            'ip' => $request->ip(),
-            'has_password' => !empty($request->password)
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
         ]);
 
-        try {
-            $request->validate([
-                'email' => 'required|email',
-                'password' => 'required',
-            ]);
+        $user = User::where('email', $request->email)->first();
 
-            Log::info('Login validation passed', ['email' => $request->email]);
-
-            // Normalize email (trim, lowercase)
-            $email = strtolower(trim($request->email));
-            
-            Log::info('Searching for user', ['normalized_email' => $email]);
-            
-            // Try multiple methods to find user (in case of case sensitivity issues)
-            $user = User::where('email', $email)->first();
-            
-            // Fallback: try case-insensitive if exact match fails
-            if (!$user) {
-                $user = User::whereRaw('LOWER(email) = ?', [$email])->first();
-            }
-            
-            // Fallback: try exact match with original email (before normalization)
-            if (!$user && $request->email !== $email) {
-                $user = User::where('email', $request->email)->first();
-            }
-
-            Log::info('User lookup result', [
-                'email' => $email,
-                'user_found' => $user !== null,
-                'user_id' => $user?->id
-            ]);
-
-            if (!$user) {
-                Log::warning('Login attempt with non-existent email', [
-                    'email' => $email,
-                    'original_email' => $request->email,
-                    'ip' => $request->ip()
-                ]);
-                throw ValidationException::withMessages([
-                    'email' => ['The provided credentials are incorrect.'],
-                ]);
-            }
-
-            // Check password
-            $passwordMatches = Hash::check($request->password, $user->password);
-            Log::info('Password check result', [
-                'user_id' => $user->id,
-                'password_matches' => $passwordMatches
-            ]);
-
-            if (!$passwordMatches) {
-                Log::warning('Login attempt with incorrect password', [
-                    'email' => $email,
-                    'user_id' => $user->id,
-                    'ip' => $request->ip()
-                ]);
-                throw ValidationException::withMessages([
-                    'email' => ['The provided credentials are incorrect.'],
-                ]);
-            }
-
-            // Update last active
-            $user->update(['last_active' => now()]);
-            if ($user->gameState) {
-                $user->gameState->update(['last_active' => now()]);
-            }
-
-            $token = $user->createToken('game-token')->plainTextToken;
-
-            return response()->json([
-                'user' => $user,
-                'token' => $token,
-            ])->header('Access-Control-Allow-Origin', '*');
-        } catch (ValidationException $e) {
-            // Log validation errors for debugging
-            Log::warning('Login validation exception', [
-                'email' => $request->email ?? 'unknown',
-                'errors' => $e->errors(),
-                'ip' => $request->ip()
-            ]);
-            throw $e;
-        } catch (\Exception $e) {
-            Log::error('Login error: ' . $e->getMessage(), [
-                'email' => $request->email ?? 'unknown',
-                'trace' => $e->getTraceAsString(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'ip' => $request->ip()
-            ]);
-            
+        if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
-                'email' => ['An error occurred during login. Please try again.'],
+                'email' => ['The provided credentials are incorrect.'],
             ]);
         }
+
+        // Update last active
+        $user->update(['last_active' => now()]);
+        if ($user->gameState) {
+            $user->gameState->update(['last_active' => now()]);
+        }
+
+        $token = $user->createToken('game-token')->plainTextToken;
+
+        return response()->json([
+            'user' => $user,
+            'token' => $token,
+        ]);
     }
 
     public function logout(Request $request)

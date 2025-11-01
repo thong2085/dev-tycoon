@@ -178,7 +178,17 @@ export default function Dashboard() {
       }
 
       const data = await gameAPI.getGameState();
-      setGameState(data.data);
+      // Update gameState with xp_current if provided (for proper XP display)
+      if (data.xp_current !== undefined) {
+        setGameState({
+          ...data.data,
+          xp: data.xp_current, // Use xp_current for display (0-99), keep original xp as xp_total
+          xp_total: data.data.xp, // Store total XP separately if needed
+          xp_for_next_level: data.xp_for_next_level || 100,
+        });
+      } else {
+        setGameState(data.data);
+      }
       setCompany(data.company);
       setActiveEvents(data.active_events || []);
       setSkillBonuses(data.skill_bonuses || null);
@@ -238,7 +248,8 @@ export default function Dashboard() {
           ...gameState,
           money: data.money,
           click_power: data.click_power,
-          xp: data.xp,
+          xp: data.xp_current !== undefined ? data.xp_current : data.xp, // Use xp_current for display (0-99)
+          xp_total: data.xp, // Store total XP if xp_current is provided
           level: data.level,
         });
       }
