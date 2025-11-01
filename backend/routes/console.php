@@ -17,6 +17,9 @@ Artisan::command('inspire', function () {
 |
 */
 
+// Spawn starter projects for low-level players (runs every 30 minutes)
+Schedule::command('game:spawn-starter-projects')->everyThirtyMinutes();
+
 // Increment game day based on config (default: every 5 minutes = 1 game day)
 $minutesPerDay = config('game_balance.time.minutes_per_game_day', 5);
 if ($minutesPerDay === 1) {

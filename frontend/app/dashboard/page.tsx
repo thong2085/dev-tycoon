@@ -58,20 +58,26 @@ export default function Dashboard() {
 
   // Helper function to check if a page is unlocked
   const isPageUnlocked = (pageKey: string): boolean => {
-    // Pages that depend on gameState level (early game)
-    if (['projects', 'skills', 'shop', 'achievements', 'leaderboard'].includes(pageKey)) {
-      if (!gameState) return false;
-      return gameState.level >= PAGE_UNLOCK_LEVELS[pageKey as keyof typeof PAGE_UNLOCK_LEVELS];
-    }
-    
-    // Pages that depend on company level (advanced game)
-    // Require both gameState and company for these pages
-    if (!gameState || !company) return false;
+    if (!gameState) return false;
     const requiredLevel = PAGE_UNLOCK_LEVELS[pageKey as keyof typeof PAGE_UNLOCK_LEVELS];
     
-    // Use company_level for company-dependent pages
-    if (['employees', 'company', 'products', 'research', 'ai-generator', 'ai-mentor', 'npcs'].includes(pageKey)) {
-      return company.company_level >= requiredLevel;
+    // Pages that depend on gameState level (early game & core features)
+    // These unlock based on player level, not company level
+    if (['projects', 'skills', 'shop', 'achievements', 'leaderboard', 'company', 'employees', 'research'].includes(pageKey)) {
+      return gameState.level >= requiredLevel;
+    }
+    
+    // Pages that depend on company existing (but can also unlock via player level)
+    // These require company to exist, but can unlock if player level is high enough
+    if (['products', 'ai-generator', 'ai-mentor', 'npcs'].includes(pageKey)) {
+      // Unlock if player level is high enough, OR if company exists and company level meets requirement
+      if (gameState.level >= requiredLevel) {
+        return true; // Player level is enough
+      }
+      if (company && company.company_level >= requiredLevel) {
+        return true; // Company level is enough
+      }
+      return false;
     }
     
     // Fallback to gameState level

@@ -10,6 +10,16 @@
 return [
     /*
     |--------------------------------------------------------------------------
+    | Starter Projects (For Low-Level Players)
+    |--------------------------------------------------------------------------
+    */
+    'starter_projects' => [
+        'min_available' => 10,  // Minimum number of easy projects always available for beginners
+        'difficulty_range' => [1, 3], // Only spawn easy projects (difficulty 1-3)
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Employee Costs & Salaries
     |--------------------------------------------------------------------------
     */
