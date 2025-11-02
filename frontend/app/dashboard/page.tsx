@@ -86,14 +86,10 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadGameState();
-    loadNotificationCounts();
-    loadActiveQuests();
     
     // Setup auto-refresh every 5 seconds
     const interval = setInterval(() => {
       loadGameState();
-      loadNotificationCounts();
-      loadActiveQuests();
     }, 5000);
 
     return () => clearInterval(interval);
@@ -142,7 +138,7 @@ export default function Dashboard() {
         message: `🎉 ${data.message}`, 
         type: 'success' 
       });
-      loadNotificationCounts(); // Refresh counts
+      loadGameState(); // Refresh counts
     });
 
     // Notification count updated
@@ -159,7 +155,6 @@ export default function Dashboard() {
         type: 'error' 
       });
       loadGameState(); // Refresh game state to show fired employees
-      loadNotificationCounts();
     });
 
     return () => {
@@ -197,6 +192,14 @@ export default function Dashboard() {
       setActiveEvents(data.active_events || []);
       setSkillBonuses(data.skill_bonuses || null);
       setApproachingDeadlines(data.approaching_deadlines || { projects: [], quests: [] });
+      
+      // Use notification_counts and active_quests from getGameState
+      if (data.notification_counts) {
+        setNotificationCounts(data.notification_counts);
+      }
+      if (data.active_quests) {
+        setActiveQuests(data.active_quests);
+      }
       
       if (data.offline_income > 0) {
         setOfflineIncome(data.offline_income);

@@ -6,6 +6,11 @@ use App\Models\GameState;
 use App\Models\Leaderboard;
 use App\Models\MarketEvent;
 use App\Models\NPCQuest;
+use App\Models\Project;
+use App\Models\Achievement;
+use App\Models\Employee;
+use App\Models\Product;
+use App\Models\ProductBug;
 use App\Events\PlayerPrestiged;
 use App\Events\LeaderboardUpdated;
 use Illuminate\Http\Request;
@@ -63,6 +68,48 @@ class GameController extends Controller
             ->select('id', 'title', 'expires_at', 'quest_type', 'current_progress', 'target_progress')
             ->get();
 
+        // Get notification counts
+        $notificationCounts = [
+            'projects' => 0,
+            'achievements' => 0,
+            'employees' => 0,
+            'products' => 0,
+        ];
+        
+        // 1. PROJECTS: Count completed projects (ready to claim)
+        $notificationCounts['projects'] = Project::where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->count();
+        
+        // 2. ACHIEVEMENTS: Count unlocked but not viewed achievements
+        $notificationCounts['achievements'] = $user->achievements()
+            ->wherePivot('unlocked_at', '>=', now()->subHours(24))
+            ->count();
+        
+        // 3. EMPLOYEES: Count employees needing rest (low energy OR low morale)
+        if ($company) {
+            $notificationCounts['employees'] = Employee::where('company_id', $company->id)
+                ->where(function ($query) {
+                    $query->where('energy', '<', 30)
+                          ->orWhere('morale', '<', 30);
+                })
+                ->count();
+        }
+        
+        // 4. PRODUCTS: Count active bugs on products
+        $notificationCounts['products'] = ProductBug::whereHas('product', function ($query) use ($user) {
+            $query->where('user_id', $user->id);
+        })
+            ->where('status', 'active')
+            ->count();
+
+        // Get active quests
+        $activeQuests = NPCQuest::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->with('npc:id,name,role,icon')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         // Calculate XP for current level (0-99)
         // Ensure level is at least 1
         if ($gameState->level < 1) {
@@ -92,6 +139,8 @@ class GameController extends Controller
                 'projects' => $approachingDeadlineProjects,
                 'quests' => $approachingExpiryQuests,
             ],
+            'notification_counts' => $notificationCounts,
+            'active_quests' => $activeQuests,
         ]);
     }
 
