@@ -123,19 +123,19 @@ class AuthController extends Controller
         return response()->json([
             'user' => $user,
             'token' => $token,
-        ]);
+        ])->header('Access-Control-Allow-Origin', '*');
     }
 
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json(['message' => 'Logged out successfully']);
+        return response()->json(['message' => 'Logged out successfully'])->header('Access-Control-Allow-Origin', '*');
     }
 
     public function user(Request $request)
     {
-        return response()->json($request->user());
+        return response()->json($request->user())->header('Access-Control-Allow-Origin', '*');
     }
 }
 
