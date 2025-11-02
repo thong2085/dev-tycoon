@@ -18,6 +18,7 @@ class Company extends Model
     ];
 
     protected $casts = [
+        'company_level' => 'integer',
         'cash' => 'decimal:2',
         'monthly_revenue' => 'decimal:2',
         'monthly_costs' => 'decimal:2',

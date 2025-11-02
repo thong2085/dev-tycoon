@@ -15,6 +15,7 @@ use App\Events\PlayerPrestiged;
 use App\Events\LeaderboardUpdated;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class GameController extends Controller
 {
@@ -434,6 +435,111 @@ class GameController extends Controller
                 $gameState->setAttribute('auto_income', (float)$gameState->auto_income + 0.5);
                 break;
             // Add more upgrade types as needed
+        }
+    }
+    
+    public function scheduleTrigger(Request $request)
+    {
+        try {
+            // Security check (optional - can be disabled if no secret set)
+            $secret = env('SCHEDULE_SECRET');
+            if (!empty($secret) && $request->header('X-Schedule-Secret') !== $secret) {
+                return response()->json(['error' => 'Unauthorized'], 401);
+            }
+            
+            // Check if proc_open is available (shared hosting often disables it)
+            if (!function_exists('proc_open')) {
+                // Fallback: Run scheduled commands directly using Artisan::call()
+                $executed = [];
+                $errors = [];
+                
+                // Run commands that should execute every minute (most game commands)
+                $minuteCommands = [
+                    'game:calculate-idle-income',
+                    'game:process-projects',
+                    'game:update-employees-state',
+                    'game:update-company-level',
+                    'game:pay-salaries',
+                    'game:process-products',
+                    'game:process-automation',
+                    'game:complete-bug-fixes',
+                    'game:check-deadlines',
+                ];
+                
+                // Run game:increment-day based on config (check if due)
+                $minutesPerDay = config('game_balance.time.minutes_per_game_day', 5);
+                $lastIncrement = cache()->get('last_day_increment');
+                $now = now()->timestamp;
+                
+                if (!$lastIncrement || ($now - $lastIncrement) >= ($minutesPerDay * 60)) {
+                    $minuteCommands[] = 'game:increment-day';
+                    cache()->put('last_day_increment', $now, now()->addMinutes($minutesPerDay));
+                }
+                
+                // Run every 3 minutes commands (check cache)
+                $lastBugSpawn = cache()->get('last_bug_spawn');
+                if (!$lastBugSpawn || ($now - $lastBugSpawn) >= 180) {
+                    $minuteCommands[] = 'game:spawn-product-bugs';
+                    cache()->put('last_bug_spawn', $now, now()->addMinutes(3));
+                }
+                
+                // Run every 5 minutes commands
+                $lastMarketEvent = cache()->get('last_market_event');
+                if (!$lastMarketEvent || ($now - $lastMarketEvent) >= 300) {
+                    $minuteCommands[] = 'game:trigger-market-event';
+                    cache()->put('last_market_event', $now, now()->addMinutes(5));
+                }
+                
+                $lastBankruptcy = cache()->get('last_bankruptcy_check');
+                if (!$lastBankruptcy || ($now - $lastBankruptcy) >= 300) {
+                    $minuteCommands[] = 'game:check-bankruptcy';
+                    cache()->put('last_bankruptcy_check', $now, now()->addMinutes(5));
+                }
+                
+                // Run every 30 minutes commands
+                $lastStarterProjects = cache()->get('last_starter_projects');
+                if (!$lastStarterProjects || ($now - $lastStarterProjects) >= 1800) {
+                    $minuteCommands[] = 'game:spawn-starter-projects';
+                    cache()->put('last_starter_projects', $now, now()->addMinutes(30));
+                }
+                
+                // Execute all due commands
+                foreach ($minuteCommands as $command) {
+                    try {
+                        \Illuminate\Support\Facades\Artisan::call($command);
+                        $executed[] = $command;
+                    } catch (\Exception $e) {
+                        $errors[$command] = $e->getMessage();
+                        Log::warning("Scheduled command '$command' failed: " . $e->getMessage());
+                    }
+                }
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Schedule executed (proc_open fallback)',
+                    'executed' => $executed,
+                    'executed_count' => count($executed),
+                    'errors' => $errors
+                ]);
+            }
+            
+            // Normal execution if proc_open is available
+            \Illuminate\Support\Facades\Artisan::call('schedule:run');
+            $output = \Illuminate\Support\Facades\Artisan::output();
+            
+            return response()->json([
+                'success' => true, 
+                'message' => 'Schedule executed',
+                'output' => $output
+            ]);
+        } catch (\Exception $e) {
+            // Log error but don't expose sensitive info
+            Log::error('Schedule trigger error: ' . $e->getMessage());
+            
+            return response()->json([
+                'error' => 'Schedule execution failed',
+                'message' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
         }
     }
 }

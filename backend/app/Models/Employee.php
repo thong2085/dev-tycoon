@@ -27,6 +27,15 @@ class Employee extends Model
 
     protected $casts = [
         'last_worked' => 'datetime',
+        'productivity' => 'integer',
+        'skill_level' => 'integer',
+        'salary' => 'integer',
+        'energy' => 'integer',
+        'experience' => 'integer',
+        'level' => 'integer',
+        'morale' => 'integer',
+        'assigned_project_id' => 'integer',
+        'projects_completed' => 'integer',
     ];
 
     public function company(): BelongsTo

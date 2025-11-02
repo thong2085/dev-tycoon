@@ -24,6 +24,9 @@ class Project extends Model
 
     protected $casts = [
         'reward' => 'decimal:2',
+        'progress' => 'integer',
+        'difficulty' => 'integer',
+        'required_reputation' => 'integer',
         'started_at' => 'datetime',
         'deadline' => 'datetime',
     ];
