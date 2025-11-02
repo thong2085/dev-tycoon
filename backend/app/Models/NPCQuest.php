@@ -26,6 +26,9 @@ class NPCQuest extends Model
     ];
 
     protected $casts = [
+        'required_project_id' => 'integer',
+        'current_progress' => 'integer',
+        'target_progress' => 'integer',
         'requirements' => 'array',
         'rewards' => 'array',
         'expires_at' => 'datetime',

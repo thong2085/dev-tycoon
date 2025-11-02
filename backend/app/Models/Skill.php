@@ -24,6 +24,7 @@ class Skill extends Model
         'base_unlock_cost' => 'decimal:2',
         'upgrade_multiplier' => 'decimal:2',
         'efficiency_bonus' => 'decimal:2',
+        'max_level' => 'integer',
     ];
 
     public function users(): BelongsToMany

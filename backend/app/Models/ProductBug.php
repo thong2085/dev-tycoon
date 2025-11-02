@@ -22,6 +22,8 @@ class ProductBug extends Model
     ];
 
     protected $casts = [
+        'fix_cost' => 'decimal:2',
+        'fix_time_minutes' => 'integer',
         'revenue_penalty' => 'decimal:2',
         'discovered_at' => 'datetime',
         'fix_started_at' => 'datetime',

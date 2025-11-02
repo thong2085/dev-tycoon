@@ -17,6 +17,8 @@ class UserSkill extends Model
 
     protected $casts = [
         'unlocked_at' => 'datetime',
+        'level' => 'integer',
+        'experience' => 'integer',
     ];
 
     public function user(): BelongsTo

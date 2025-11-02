@@ -18,8 +18,12 @@ class Leaderboard extends Model
     ];
 
     protected $casts = [
+        'rank' => 'integer',
         'score' => 'decimal:2',
         'money' => 'decimal:2',
+        'level' => 'integer',
+        'reputation' => 'integer',
+        'projects_completed' => 'integer',
     ];
 
     public function user(): BelongsTo

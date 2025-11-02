@@ -49,6 +49,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'level' => 'integer',
+            'prestige_points' => 'integer',
             'last_active' => 'datetime',
         ];
     }

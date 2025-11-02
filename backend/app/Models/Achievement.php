@@ -24,6 +24,14 @@ class Achievement extends Model
         'order',
     ];
 
+    protected $casts = [
+        'requirement_value' => 'integer',
+        'reward_money' => 'decimal:2',
+        'reward_xp' => 'integer',
+        'reward_prestige_points' => 'integer',
+        'order' => 'integer',
+    ];
+
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_achievements')

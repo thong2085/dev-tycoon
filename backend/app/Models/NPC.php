@@ -21,6 +21,7 @@ class NPC extends Model
     ];
 
     protected $casts = [
+        'required_company_level' => 'integer',
         'can_give_quests' => 'boolean',
         'quest_types' => 'array',
         'created_at' => 'datetime',

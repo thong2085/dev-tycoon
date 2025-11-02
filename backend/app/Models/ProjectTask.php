@@ -15,6 +15,12 @@ class ProjectTask extends Model
         'assigned_employee_id',
     ];
 
+    protected $casts = [
+        'estimated_hours' => 'integer',
+        'progress' => 'integer',
+        'assigned_employee_id' => 'integer',
+    ];
+
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);

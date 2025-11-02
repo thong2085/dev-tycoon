@@ -19,7 +19,11 @@ class AutomationSetting extends Model
 
     protected $casts = [
         'auto_rest_enabled' => 'boolean',
+        'auto_rest_energy_threshold' => 'integer',
+        'auto_rest_morale_threshold' => 'integer',
         'auto_assign_enabled' => 'boolean',
+        'auto_assign_min_energy' => 'integer',
+        'auto_assign_min_morale' => 'integer',
     ];
 
     public function user(): BelongsTo

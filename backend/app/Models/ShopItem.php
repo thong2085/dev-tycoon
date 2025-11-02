@@ -26,8 +26,10 @@ class ShopItem extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
+        'duration_minutes' => 'integer',
         'effect_data' => 'array',
         'is_available' => 'boolean',
+        'order' => 'integer',
     ];
 
     public function purchases(): HasMany

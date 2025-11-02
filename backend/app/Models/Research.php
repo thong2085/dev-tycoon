@@ -15,6 +15,7 @@ class Research extends Model
 
     protected $casts = [
         'cost' => 'decimal:2',
+        'required_level' => 'integer',
         'effects' => 'array',
     ];
 
